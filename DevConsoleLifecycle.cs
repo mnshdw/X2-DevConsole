@@ -10,16 +10,14 @@ using static DevConsole.ModConstants;
 
 namespace DevConsole
 {
-
     public class DevConsoleLifecycle : IModLifecycle
     {
-
         private const string HostObjectName = "DevConsole.Host";
         private GameObject? _host;
 
         public void Create(Mod mod, Harmony patcher)
         {
-            Log.Info($"{LogPrefix} Create — mod loaded");
+            Log.Info($"{LogPrefix} Create - mod loaded");
             try
             {
                 _host = new GameObject(HostObjectName);
@@ -35,7 +33,7 @@ namespace DevConsole
 
         public void Destroy()
         {
-            Log.Info($"{LogPrefix} Destroy — mod unloaded");
+            Log.Info($"{LogPrefix} Destroy - mod unloaded");
             if (_host != null)
             {
                 UnityEngine.Object.Destroy(_host);
@@ -46,7 +44,7 @@ namespace DevConsole
 
         public void OnWorldCreate(IModLifecycle.Section section, WeakReference<World> world)
         {
-            Log.Info($"{LogPrefix} OnWorldCreate — section={section}");
+            Log.Info($"{LogPrefix} OnWorldCreate - section={section}");
             GameContext.RegisterWorld(section, world);
         }
 
@@ -57,9 +55,8 @@ namespace DevConsole
 
         public void OnWorldDispose(IModLifecycle.Section section, WeakReference<World> world)
         {
-            Log.Info($"{LogPrefix} OnWorldDispose — section={section}");
+            Log.Info($"{LogPrefix} OnWorldDispose - section={section}");
             GameContext.UnregisterWorld(section);
         }
     }
-
 }

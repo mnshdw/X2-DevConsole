@@ -25,29 +25,44 @@ namespace DevConsole.Runtime
                 CommandRegistry.RegisterBuiltins();
                 _registered = true;
             }
-            AppendLine("DevConsole ready. Press Ctrl+G to toggle. Type 'help' for commands.");
+            AppendLine(
+                "DevConsole ready. Press Ctrl+G to toggle, Esc to close. Type 'help' for commands."
+            );
         }
 
-        private void Update()
+        private void OnEnable()
         {
-            var ctrl = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
-            if (ctrl && Input.GetKeyDown(ToggleKey))
-            {
-                _visible = !_visible;
-                GameContext.ConsoleHasFocus = _visible;
-                if (_visible)
-                    _focusNextFrame = true;
-                Log.Warn($"{LogPrefix} toggle -> visible={_visible}");
-            }
+            Log.Info($"{LogPrefix} DevConsoleHost OnEnable");
+        }
+
+        private void OnDisable()
+        {
+            Log.Info($"{LogPrefix} DevConsoleHost OnDisable");
         }
 
         private void OnGUI()
         {
             GUI.depth = -1000;
+            var ev = Event.current;
+
+            // Toggle handled here (not in Update) so it works even when the game's
+            // Input.GetKeyDown poll is suppressed by GroundCombat input handling.
+            // Ctrl+G toggles. Esc closes only.
+            if (ev.type == EventType.KeyDown)
+            {
+                var isToggle = ev.control && ev.keyCode == ToggleKey;
+                var isClose = _visible && ev.keyCode == KeyCode.Escape;
+                if (isToggle || isClose)
+                {
+                    SetVisible(!_visible);
+                    Log.Info($"{LogPrefix} toggle (OnGUI {ev.keyCode}) -> visible={_visible}");
+                    ev.Use();
+                    return;
+                }
+            }
+
             if (!_visible)
                 return;
-
-            var ev = Event.current;
 
             // Submit on Enter (consume before TextField sees it, regardless of focus reporting).
             var enterPressed =
@@ -57,13 +72,6 @@ namespace DevConsole.Runtime
             {
                 if (_input.Length > 0)
                     Submit();
-                ev.Use();
-            }
-
-            // Strip stray backtick that the fallback toggle may leave in the input field.
-            if (ev.type == EventType.KeyDown && ev.character == '`')
-            {
-                _input = _input.TrimEnd('`');
                 ev.Use();
             }
 
@@ -131,6 +139,42 @@ namespace DevConsole.Runtime
             CommandRegistry.Execute(line, this);
         }
 
+        private void SetVisible(bool visible)
+        {
+            _visible = visible;
+            GameContext.ConsoleHasFocus = visible;
+            if (visible)
+            {
+                _focusNextFrame = true;
+                TryClearUguiFocus();
+            }
+        }
+
+        // Best-effort: drop any UGUI EventSystem selection so the game's UI doesn't keep
+        // swallowing keyboard/mouse focus away from the IMGUI text field. Reflection avoids
+        // a hard reference to UnityEngine.UI; if the assembly isn't loaded this silently no-ops.
+        private static void TryClearUguiFocus()
+        {
+            try
+            {
+                var esType = System.Type.GetType(
+                    "UnityEngine.EventSystems.EventSystem, UnityEngine.UI"
+                );
+                if (esType == null)
+                    return;
+                var current = esType.GetProperty("current")?.GetValue(null);
+                if (current == null)
+                    return;
+                esType
+                    .GetMethod("SetSelectedGameObject", new[] { typeof(GameObject) })
+                    ?.Invoke(current, new object[] { null });
+            }
+            catch
+            {
+                /* best-effort */
+            }
+        }
+
         public void AppendLine(string line)
         {
             _output.Enqueue(line);
@@ -146,7 +190,7 @@ namespace DevConsole.Runtime
         private void OnDestroy()
         {
             GameContext.ConsoleHasFocus = false;
-            Log.Warn($"{LogPrefix} DevConsoleHost destroyed");
+            Log.Info($"{LogPrefix} DevConsoleHost destroyed");
         }
     }
 }

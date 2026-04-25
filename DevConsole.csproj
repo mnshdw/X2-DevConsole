@@ -1,61 +1,69 @@
 <Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>DevConsole</RootNamespace>
+    <AssemblyName>DevConsole</AssemblyName>
+    <DefaultItemExcludes>$(DefaultItemExcludes);decomp/**;dist/**</DefaultItemExcludes>
+  </PropertyGroup>
 
-    <PropertyGroup>
-        <TargetFramework>netstandard2.1</TargetFramework>
-        <Nullable>enable</Nullable>
-        <LangVersion>latest</LangVersion>
-        <RootNamespace>DevConsole</RootNamespace>
-        <AssemblyName>DevConsole</AssemblyName>
-    </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="0Harmony">
+      <HintPath>$(CacheFolder)\0Harmony.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Log4Net">
+      <HintPath>$(CacheFolder)\log4net.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Assembly-CSharp">
+      <HintPath>$(GameFolder)\Assembly-CSharp.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Assembly-CSharp-firstpass">
+      <HintPath>$(GameFolder)\Assembly-CSharp-firstpass.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="UnityEngine">
+      <HintPath>$(GameFolder)\UnityEngine.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>$(GameFolder)\UnityEngine.CoreModule.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="UnityEngine.IMGUIModule">
+      <HintPath>$(GameFolder)\UnityEngine.IMGUIModule.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="UnityEngine.InputLegacyModule">
+      <HintPath>$(GameFolder)\UnityEngine.InputLegacyModule.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Sirenix.OdinInspector.Attributes">
+      <HintPath>$(GameFolder)\Sirenix.OdinInspector.Attributes.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+  </ItemGroup>
 
-      <ItemGroup>
-        <Reference Include="0Harmony">
-          <HintPath>$(CacheFolder)\0Harmony.dll</HintPath>
-          <Private>False</Private>
-        </Reference>
-        <Reference Include="Log4Net">
-          <HintPath>$(CacheFolder)\log4net.dll</HintPath>
-          <Private>False</Private>
-        </Reference>
-        <Reference Include="Assembly-CSharp">
-          <HintPath>$(GameFolder)\Assembly-CSharp.dll</HintPath>
-          <Private>False</Private>
-        </Reference>
-        <Reference Include="Assembly-CSharp-firstpass">
-          <HintPath>$(GameFolder)\Assembly-CSharp-firstpass.dll</HintPath>
-          <Private>False</Private>
-        </Reference>
-        <Reference Include="UnityEngine">
-          <HintPath>$(GameFolder)\UnityEngine.dll</HintPath>
-          <Private>False</Private>
-        </Reference>
-        <Reference Include="UnityEngine.CoreModule">
-          <HintPath>$(GameFolder)\UnityEngine.CoreModule.dll</HintPath>
-          <Private>False</Private>
-        </Reference>
-        <Reference Include="UnityEngine.IMGUIModule">
-          <HintPath>$(GameFolder)\UnityEngine.IMGUIModule.dll</HintPath>
-          <Private>False</Private>
-        </Reference>
-        <Reference Include="UnityEngine.InputLegacyModule">
-          <HintPath>$(GameFolder)\UnityEngine.InputLegacyModule.dll</HintPath>
-          <Private>False</Private>
-        </Reference>
-      </ItemGroup>
+  <Target Name="CopyOutputToDepot" AfterTargets="Build">
+    <ItemGroup>
+      <BuiltArtifacts Include="$(TargetPath)" />
+      <BuiltArtifacts Include="$(TargetDir)$(TargetName).pdb" />
+      <ModStaticFiles Include="$(MSBuildProjectDirectory)/mod/**/*" />
+    </ItemGroup>
 
-      <Target Name="CopyOutputToDepot" AfterTargets="Build">
-        <ItemGroup>
-          <BuiltArtifacts Include="$(TargetPath)" />
-          <BuiltArtifacts Include="$(TargetDir)$(TargetName).pdb" />
-          <ModStaticFiles Include="$(MSBuildProjectDirectory)/mod/**/*" />
-        </ItemGroup>
+    <Copy
+      SourceFiles="@(BuiltArtifacts)"
+      DestinationFolder="$(ModInstanceFolder)/assembly/common"
+      SkipUnchangedFiles="false"
+    />
 
-        <Copy SourceFiles="@(BuiltArtifacts)"
-              DestinationFolder="$(ModInstanceFolder)/assembly/common"
-              SkipUnchangedFiles="false" />
-
-        <Copy SourceFiles="@(ModStaticFiles)"
-              DestinationFiles="@(ModStaticFiles->'$(ModInstanceFolder)/%(RecursiveDir)%(Filename)%(Extension)')"
-              SkipUnchangedFiles="true" />
-      </Target>
+    <Copy
+      SourceFiles="@(ModStaticFiles)"
+      DestinationFiles="@(ModStaticFiles->'$(ModInstanceFolder)/%(RecursiveDir)%(Filename)%(Extension)')"
+      SkipUnchangedFiles="true"
+    />
+  </Target>
 </Project>

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using DevConsole.Runtime.Commands;
 using static DevConsole.ModConstants;
 
 namespace DevConsole.Runtime
@@ -55,7 +56,7 @@ namespace DevConsole.Runtime
             }
             catch (Exception ex)
             {
-                Log.Warn($"{LogPrefix} command '{name}' threw: {ex}");
+                Log.Error($"{LogPrefix} command '{name}' threw: {ex}");
                 host.AppendLine($"[ERR] {ex.GetType().Name}: {ex.Message}");
             }
         }
@@ -63,28 +64,8 @@ namespace DevConsole.Runtime
         public static void RegisterBuiltins()
         {
             Register(
-                "echo",
-                "echo <text> — print text to the console buffer",
-                (args, host) =>
-                {
-                    host.AppendLine(string.Join(" ", args));
-                }
-            );
-
-            Register(
-                "log",
-                "log <text> — write text to output.log at WARN",
-                (args, host) =>
-                {
-                    var text = string.Join(" ", args);
-                    Log.Warn($"{LogPrefix} log: {text}");
-                    host.AppendLine($"logged: {text}");
-                }
-            );
-
-            Register(
                 "help",
-                "help — list registered commands",
+                "help - list registered commands",
                 (_, host) =>
                 {
                     foreach (var c in Commands.Values.OrderBy(c => c.Name))
@@ -96,12 +77,14 @@ namespace DevConsole.Runtime
 
             Register(
                 "clear",
-                "clear — empty the console buffer",
+                "clear - empty the console",
                 (_, host) =>
                 {
                     host.Clear();
                 }
             );
+
+            BuiltinCommands.RegisterAll();
         }
     }
 }

@@ -18,7 +18,7 @@ namespace DevConsole.Runtime
             Worlds[section] = world;
             if (SeenSections.Add(section))
             {
-                Log.Warn($"{LogPrefix} GameContext: first sighting of section={section}");
+                Log.Info($"{LogPrefix} GameContext: first sighting of section={section}");
             }
         }
 
