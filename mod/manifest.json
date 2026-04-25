@@ -1,0 +1,14 @@
+{
+	"version": "0.0.4",
+	"asset": {
+		"Name": "Dev Console",
+		"UID": "d20cf73b-0dab-4118-9829-5861e4fe5038",
+		"Description": "Dev console for Xenonauts 2: provides debug actions otherwise unavailable to players.",
+		"Author": "mnshdw",
+		"Website": "",
+		"Tags": ["Mod", "Debug"],
+		"Version": "0.1.0",
+		"$type": "Common.Content.DataStructures.ContentPackManifest"
+	},
+	"$type": "Common.Content.DataStructures.VersionedAsset"
+}

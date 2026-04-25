@@ -1,0 +1,19 @@
+# Build output
+bin/
+obj/
+
+# IDE / editor
+.vs/
+.idea/
+*.user
+*.suo
+*.userprefs
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Machine-specific paths — copy Directory.Build.props.template to Directory.Build.props
+# and edit the three paths.
+Directory.Build.props

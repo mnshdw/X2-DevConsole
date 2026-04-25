@@ -1,0 +1,14 @@
+<Project>
+  <PropertyGroup>
+    <!-- Path to Xenonauts 2 game DLLs (Assembly-CSharp.dll, UnityEngine.dll, 0Harmony.dll, log4net.dll, ...) -->
+    <GameFolder>/path/to/Xenonauts2/Xenonauts2_Data/Managed</GameFolder>
+
+    <!-- Path to a folder holding 0Harmony.dll and log4net.dll. The X2-Modding skeleton ships these
+         under code-skeleton-mod/binaries/. You can also point this at GameFolder. -->
+    <CacheFolder>/path/to/X2-Modding/code-skeleton-mod/binaries</CacheFolder>
+
+    <!-- Where the build copies the compiled DLL + manifest.json. Should be your X2 user mods dir
+         followed by this mod's identifier, e.g. .../Xenonauts 2/Mods/dev_console -->
+    <ModInstanceFolder>/path/to/Xenonauts2-userdata/Mods/dev_console</ModInstanceFolder>
+  </PropertyGroup>
+</Project>
