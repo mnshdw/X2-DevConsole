@@ -24,7 +24,7 @@ Press **Ctrl+G** in-game to toggle the console overlay. Type `help` to list avai
 
 `[*]` marks state-mutating commands.
 
-> WARNING: State-mutating commands modify live game state and can corrupt save files. **Save before using.**
+WARNING: State-mutating commands modify live game state and can corrupt save files. **Save before using.**
 
 To see the mod's log output, edit `<game install>/Assets/Configuration/log4net.xml` and lower the `root` level + the three appender thresholds from `ERROR` to `INFO`.
 
@@ -49,6 +49,11 @@ The build emits `bin/Release/netstandard2.1/DevConsole.dll` and also copies it (
 ```
 
 Produces `dist/dev_console-<version>.zip` ready to attach to a GitHub Release. Version is read from `mod/manifest.json`.
+
+## Screenshots
+
+<img width="2560" height="1440" alt="Screenshot_20260426_000855" src="https://github.com/user-attachments/assets/a35d2d68-67f2-4fff-b0e9-10c99e6f3c45" />
+<img width="2560" height="1440" alt="Screenshot_20260426_000655" src="https://github.com/user-attachments/assets/641a852d-c86e-40ca-98fc-c0d813c36d92" />
 
 ## License
 
