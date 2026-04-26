@@ -61,7 +61,7 @@ Produces `dist/dev_console-<version>.zip` ready to attach to a GitHub Release. V
 ## Screenshots
 
 <img width="2560" height="1440" alt="Screenshot_20260426_000855" src="https://github.com/user-attachments/assets/a35d2d68-67f2-4fff-b0e9-10c99e6f3c45" />
-<img width="2560" height="1440" alt="Screenshot_20260426_000655" src="https://github.com/user-attachments/assets/641a852d-c86e-40ca-98fc-c0d813c36d92" />
+<img width="2030" height="1329" alt="Screenshot_20260426_015011" src="https://github.com/user-attachments/assets/2fe43636-9c51-449a-94f1-dc8bff74dd13" />
 
 ## License
 
