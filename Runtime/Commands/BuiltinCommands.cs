@@ -1,3 +1,4 @@
+using System.Linq;
 using static DevConsole.ModConstants;
 
 namespace DevConsole.Runtime.Commands
@@ -11,20 +12,32 @@ namespace DevConsole.Runtime.Commands
         {
             CommandRegistry.Register(
                 "funds",
-                "[*] funds <delta> - adjust Cash on Geoscape (e.g. funds 5000, funds -1000)",
+                "funds <delta> - adjust Cash on Geoscape (e.g. funds 5000, funds -1000)",
                 ExecuteFunds
             );
 
             CommandRegistry.Register(
                 "op",
-                "[*] op <delta> - adjust Operation Points on Geoscape (e.g. op 5)",
+                "op <delta> - adjust Operation Points on Geoscape (e.g. op 5)",
                 ExecuteOp
             );
 
             CommandRegistry.Register(
                 "xray",
-                "[*] xray - toggle X-ray vision on enemies in GroundCombat (silhouettes through walls)",
+                "xray - toggle X-ray vision on enemy silhouettes (does not lift fog of war)",
                 ExecuteXray
+            );
+
+            CommandRegistry.Register(
+                "kill",
+                "kill - kill the combatant under the mouse cursor",
+                ExecuteKill
+            );
+
+            CommandRegistry.Register(
+                "spawn",
+                "spawn [species [rank]] - spawn an alien at the mouse cursor. 'spawn ?' lists species; 'spawn <species> ?' lists ranks.",
+                ExecuteSpawn
             );
         }
 
@@ -108,6 +121,126 @@ namespace DevConsole.Runtime.Commands
             _xrayOn = nextOn;
             host.AppendLine($"xray: {(_xrayOn ? "on" : "off")}");
             Log.Info($"{LogPrefix} xray: {(_xrayOn ? "on" : "off")}");
+        }
+
+        private static void ExecuteKill(string[] args, DevConsoleHost host)
+        {
+            if (!Args.RequireArgs(args, 0, host, "kill"))
+                return;
+            if (!GroundCombatContext.TryGetWorld(out var world))
+            {
+                host.AppendLine("not in GroundCombat");
+                return;
+            }
+            if (!GroundCombatContext.TryGetCursorPick(world, out var target, out _))
+            {
+                host.AppendLine("no cursor pick yet (move the mouse over a tile first)");
+                return;
+            }
+            if (target == null)
+            {
+                host.AppendLine("no entity under cursor");
+                return;
+            }
+            WarnOnce(host);
+            if (!GroundCombatContext.TryKillCombatant(world, target, out var reason))
+            {
+                host.AppendLine($"kill refused: {reason}");
+                return;
+            }
+            host.AppendLine($"killed: {target}");
+            Log.Info($"{LogPrefix} kill: target={target}");
+        }
+
+        private static void ExecuteSpawn(string[] args, DevConsoleHost host)
+        {
+            if (args.Length > 2)
+            {
+                host.AppendLine("usage: spawn [species [rank]]");
+                return;
+            }
+            var speciesName = args.Length >= 1 ? args[0] : null;
+            var rankName = args.Length >= 2 ? args[1] : null;
+
+            if (speciesName == "?" || speciesName == "help")
+            {
+                var species = LoadoutRegistry.Species.OrderBy(s => s).ToList();
+                if (species.Count == 0)
+                {
+                    host.AppendLine(
+                        "loadout registry empty (content manager not ready, or no GroundCombat world loaded yet)"
+                    );
+                }
+                else
+                {
+                    host.AppendLine($"species with shipped loadouts ({species.Count}):");
+                    host.AppendLine("  " + string.Join(", ", species));
+                    host.AppendLine("for ranks: spawn <species> ?");
+                    host.AppendLine(
+                        "with no arg, spawn copies the species of any alien already on the map"
+                    );
+                }
+                return;
+            }
+
+            if (rankName == "?" || rankName == "help")
+            {
+                var ranks = LoadoutRegistry
+                    .RanksFor(speciesName!.ToLowerInvariant())
+                    .OrderBy(r => r)
+                    .ToList();
+                if (ranks.Count == 0)
+                {
+                    host.AppendLine(
+                        $"no shipped loadouts for species '{speciesName}' (try 'spawn ?' for the list)"
+                    );
+                }
+                else
+                {
+                    host.AppendLine($"ranks for {speciesName} ({ranks.Count}):");
+                    host.AppendLine("  " + string.Join(", ", ranks));
+                }
+                return;
+            }
+
+            if (!GroundCombatContext.TryGetWorld(out var world))
+            {
+                host.AppendLine("not in GroundCombat");
+                return;
+            }
+            if (!GroundCombatContext.TryGetCursorPick(world, out _, out var address))
+            {
+                host.AppendLine("no cursor pick yet (move the mouse over a tile first)");
+                return;
+            }
+            WarnOnce(host);
+            if (
+                !GroundCombatContext.TrySpawnHostileAt(
+                    world,
+                    address,
+                    speciesName,
+                    rankName,
+                    out var spawned,
+                    out var reason
+                )
+            )
+            {
+                var label = FormatLabel(speciesName, rankName);
+                host.AppendLine($"spawn ({label}) failed: {reason}");
+                return;
+            }
+            var labelOk = FormatLabel(speciesName, rankName);
+            host.AppendLine($"spawned {labelOk}: {spawned} at ({address.i},{address.j})");
+            Log.Info(
+                $"{LogPrefix} spawn: {labelOk} spawned={spawned} at=({address.i},{address.j})"
+            );
+        }
+
+        private static string FormatLabel(string? species, string? rank)
+        {
+            if (species == null)
+                return "auto";
+            return rank == null ? species : $"{species}/{rank}";
         }
 
         private static void WarnOnce(DevConsoleHost host)

@@ -12,19 +12,27 @@ A debug mod for [Xenonauts 2](https://store.steampowered.com/app/538030/Xenonaut
 
 ## Usage
 
-Press **Ctrl+G** in-game to toggle the console overlay. Type `help` to list available commands. Press **Esc** to close.
+Press **Alt+G** in-game to toggle the console overlay. Type `help` to list available commands. Press **Esc** to close.
 
 ### Commands
 
+**Global** (always available):
+
 - `help` - list all commands
 - `clear` - clear the console
-- `funds <delta>` - [*] add or remove Cash on Geoscape (e.g. `funds 5000`, `funds -1000`)
-- `op <delta>` - [*] add or remove Operation Points on Geoscape
-- `xray` - [*] toggle X-ray vision on enemy silhouettes in GroundCombat (does not lift fog of war)
 
-`[*]` marks state-mutating commands.
+**Geoscape**:
 
-WARNING: State-mutating commands modify live game state and can corrupt save files. **Save before using.**
+- `funds <delta>` - add or remove Cash (e.g. `funds 5000`, `funds -1000`)
+- `op <delta>` - add or remove Operation Points
+
+**GroundCombat**:
+
+- `xray` - toggle X-ray vision on enemy silhouettes (does not lift fog of war)
+- `kill` - kill the combatant under the mouse cursor
+- `spawn [species [rank]]` - spawn an alien on the tile under the mouse cursor; with no arg, copies from an alien on the map; `spawn ?` lists species, `spawn <species> ?` lists ranks
+
+WARNING: Most commands modify live game state and can corrupt save files. **Save before using.**
 
 To see the mod's log output, edit `<game install>/Assets/Configuration/log4net.xml` and lower the `root` level + the three appender thresholds from `ERROR` to `INFO`.
 

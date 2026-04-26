@@ -46,6 +46,19 @@ namespace DevConsole
         {
             Log.Info($"{LogPrefix} OnWorldCreate - section={section}");
             GameContext.RegisterWorld(section, world);
+
+            if (section == IModLifecycle.Section.GroundCombat && world.TryGetTarget(out var w))
+            {
+                try
+                {
+                    w.RegisterSystem<PickingTracker>();
+                    Log.Info($"{LogPrefix} PickingTracker registered on GroundCombat world");
+                }
+                catch (Exception ex)
+                {
+                    Log.Error($"{LogPrefix} failed to register PickingTracker: {ex}");
+                }
+            }
         }
 
         public IEnumerable<Descriptor> GetRequiredAssets(IModLifecycle.Section section)
