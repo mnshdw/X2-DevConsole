@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Artitas;
 using Common.Components;
 using Common.Mechanics.Factions;
@@ -7,6 +8,7 @@ using Common.RPG;
 using Strategy.Components.Ranges;
 using Xenonauts;
 using Xenonauts.Strategy.Components;
+using Xenonauts.Strategy.Factories;
 using static DevConsole.ModConstants;
 
 namespace DevConsole.Runtime
@@ -52,6 +54,60 @@ namespace DevConsole.Runtime
             RangeModifier.Modify(clone, RangeModifier.Operation.Additive, delta, 0f, 0f);
             player.Add(clone);
             return clone.Value;
+        }
+
+        public static IEnumerable<Entity> EnumerateActors(World world)
+        {
+            return world.RegisterFamily(StrategyArchetypes.StrategyActor);
+        }
+
+        // Case-insensitive: exact match wins; otherwise returns every actor whose name
+        // contains the query as a substring.
+        public static List<Entity> FindActorsByName(World world, string query)
+        {
+            var exact = new List<Entity>();
+            var partial = new List<Entity>();
+            foreach (Entity actor in EnumerateActors(world))
+            {
+                if (!actor.HasName())
+                    continue;
+                var name = actor.Name().value;
+                if (string.Equals(name, query, StringComparison.OrdinalIgnoreCase))
+                    exact.Add(actor);
+                else if (name.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0)
+                    partial.Add(actor);
+            }
+            return exact.Count > 0 ? exact : partial;
+        }
+
+        // Adds delta to a range component. By default both Value and Maximum are
+        // raised so the change persists as a real stat increase. With maxOnly=true
+        // only Maximum changes (used for Stun, where Value is current stun damage).
+        // Returns true if the component existed.
+        public static bool AddStat(
+            Entity actor,
+            Type componentType,
+            int delta,
+            bool maxOnly = false
+        )
+        {
+            if (!actor.Has(componentType))
+                return false;
+            var clone = (RangeComponent)actor.Get(componentType).Clone();
+            var valueDelta = maxOnly ? 0f : (float)delta;
+            RangeModifier.Modify(clone, RangeModifier.Operation.Additive, valueDelta, 0f, delta);
+            actor.Add(clone);
+            return true;
+        }
+
+        // Reads a range component's Value or Maximum. Used to display a number
+        // that matches what the soldier sheet renders after a stat change.
+        public static float? ReadStat(Entity actor, Type componentType, bool maximum)
+        {
+            if (!actor.Has(componentType))
+                return null;
+            var range = (RangeComponent)actor.Get(componentType);
+            return maximum ? range.Maximum : range.Value;
         }
     }
 }

@@ -39,6 +39,12 @@ namespace DevConsole.Runtime.Commands
                 "spawn [species [rank]] - spawn an alien at the mouse cursor. 'spawn ?' lists species; 'spawn <species> ?' lists ranks.",
                 ExecuteSpawn
             );
+
+            CommandRegistry.Register(
+                "stat",
+                "stat <kind> <stat|all> <delta> [name] - adjust unit stats on Geoscape. 'stat ?' lists kinds; 'stat <kind> ?' lists stats.",
+                StatCommand.Execute
+            );
         }
 
         private static void ExecuteFunds(string[] args, DevConsoleHost host)
@@ -243,7 +249,7 @@ namespace DevConsole.Runtime.Commands
             return rank == null ? species : $"{species}/{rank}";
         }
 
-        private static void WarnOnce(DevConsoleHost host)
+        public static void WarnOnce(DevConsoleHost host)
         {
             if (_warnedThisSession)
                 return;
