@@ -25,8 +25,9 @@ namespace DevConsole.Runtime
                 CommandRegistry.RegisterBuiltins();
                 _registered = true;
             }
+            // Alt avoids Ctrl (used by free-aim) and Shift (held for sprint).
             AppendLine(
-                "DevConsole ready. Press Ctrl+G to toggle, Esc to close. Type 'help' for commands."
+                "DevConsole ready. Press Alt+G to toggle, Esc to close. Type 'help' for commands."
             );
         }
 
@@ -47,10 +48,10 @@ namespace DevConsole.Runtime
 
             // Toggle handled here (not in Update) so it works even when the game's
             // Input.GetKeyDown poll is suppressed by GroundCombat input handling.
-            // Ctrl+G toggles. Esc closes only.
+            // Alt+G toggles. Esc closes only.
             if (ev.type == EventType.KeyDown)
             {
-                var isToggle = ev.control && ev.keyCode == ToggleKey;
+                var isToggle = ev.alt && ev.keyCode == ToggleKey;
                 var isClose = _visible && ev.keyCode == KeyCode.Escape;
                 if (isToggle || isClose)
                 {
