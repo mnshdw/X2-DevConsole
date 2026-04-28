@@ -25,7 +25,7 @@ Press **Alt+G** in-game to toggle the console overlay. Type `help` to list avail
 
 - `funds <delta>` - add or remove Cash (e.g. `funds 5000`, `funds -1000`)
 - `op <delta>` - add or remove Operation Points
-- `stat <kind> <stat|all> <delta> <name>` - adjust unit stats (e.g. `stat soldier strength 5 jones`, `stat soldier all -2 moon`). Name is case-insensitive and matches as a substring; the rank prefix (eg. `PVT.`/`CPL.`) is not part of the name. `stat ?` lists kinds, `stat <kind> ?` lists stats. Currently only `kind=soldier` is implemented.
+- `stat <kind> <stat|all> <delta> <name>` - adjust unit stats (e.g. `stat soldier strength 5 jones`, `stat soldier all -2 moon`, `stat aircraft fuel 50 angel`). Kinds: `soldier`, `aircraft`. Name is case-insensitive and matches as a substring; the rank prefix (eg. `PVT.`/`CPL.`) is not part of the name. `stat ?` lists kinds, `stat <kind> ?` lists stats.
 
 **GroundCombat**:
 

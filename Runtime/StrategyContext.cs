@@ -61,21 +61,32 @@ namespace DevConsole.Runtime
             return world.RegisterFamily(StrategyArchetypes.StrategyActor);
         }
 
+        public static IEnumerable<Entity> EnumerateAircraft(World world)
+        {
+            return world.RegisterFamily(StrategyAircraftArchetypes.StrategyAircraft);
+        }
+
         // Case-insensitive: exact match wins; otherwise returns every actor whose name
         // contains the query as a substring.
-        public static List<Entity> FindActorsByName(World world, string query)
+        public static List<Entity> FindActorsByName(World world, string query) =>
+            FindByName(EnumerateActors(world), query);
+
+        public static List<Entity> FindAircraftByName(World world, string query) =>
+            FindByName(EnumerateAircraft(world), query);
+
+        private static List<Entity> FindByName(IEnumerable<Entity> entities, string query)
         {
             var exact = new List<Entity>();
             var partial = new List<Entity>();
-            foreach (Entity actor in EnumerateActors(world))
+            foreach (Entity entity in entities)
             {
-                if (!actor.HasName())
+                if (!entity.HasName())
                     continue;
-                var name = actor.Name().value;
+                var name = entity.Name().value;
                 if (string.Equals(name, query, StringComparison.OrdinalIgnoreCase))
-                    exact.Add(actor);
+                    exact.Add(entity);
                 else if (name.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0)
-                    partial.Add(actor);
+                    partial.Add(entity);
             }
             return exact.Count > 0 ? exact : partial;
         }

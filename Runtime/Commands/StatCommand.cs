@@ -1,21 +1,23 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using Artitas;
 using DevConsole.Runtime.Stats;
 using static DevConsole.ModConstants;
 
 namespace DevConsole.Runtime.Commands
 {
     // stat <kind> <stat|all> <delta> [name]
-    //   kinds: soldier (aircraft, vehicle to follow)
+    //   kinds: soldier, aircraft
     //   stat:  one of the names in the kind's stat table, or 'all' to apply the
     //          delta to every stat flagged IncludedInAll
     //   delta: signed integer (use '5' or '-5'; '+5' is rejected)
-    //   name:  required for v1; soldier name (case-insensitive)
+    //   name:  case-insensitive substring match
     public static class StatCommand
     {
         private const string Usage = "stat <kind> <stat|all> <delta> [name]";
 
-        private static readonly string[] Kinds = { "soldier" };
+        private static readonly string[] Kinds = { "soldier", "aircraft" };
 
         public static void Execute(string[] args, DevConsoleHost host)
         {
@@ -31,11 +33,24 @@ namespace DevConsole.Runtime.Commands
             switch (kind)
             {
                 case "soldier":
-                    ExecuteSoldier(args, host);
+                    ExecuteForKind(
+                        "soldier",
+                        args,
+                        host,
+                        SoldierStatTable.All,
+                        SoldierStatTable.TryFind,
+                        StrategyContext.FindActorsByName
+                    );
                     return;
                 case "aircraft":
-                case "vehicle":
-                    host.AppendLine($"stat: kind '{kind}' not implemented yet");
+                    ExecuteForKind(
+                        "aircraft",
+                        args,
+                        host,
+                        AircraftStatTable.All,
+                        AircraftStatTable.TryFind,
+                        StrategyContext.FindAircraftByName
+                    );
                     return;
                 default:
                     host.AppendLine($"stat: unknown kind '{args[0]}' (try 'stat ?')");
@@ -43,22 +58,33 @@ namespace DevConsole.Runtime.Commands
             }
         }
 
-        private static void ExecuteSoldier(string[] args, DevConsoleHost host)
+        private delegate bool TryFindStat(string name, out StatEntry entry);
+
+        private delegate List<Entity> FindByName(World world, string query);
+
+        private static void ExecuteForKind(
+            string kind,
+            string[] args,
+            DevConsoleHost host,
+            IReadOnlyList<StatEntry> table,
+            TryFindStat tryFind,
+            FindByName findByName
+        )
         {
-            // args[0] = "soldier"
+            // args[0] = kind
             if (args.Length >= 2 && IsHelp(args[1]))
             {
-                ListSoldierStats(host);
+                ListStats(host, kind, table);
                 return;
             }
 
             if (args.Length < 4)
             {
-                host.AppendLine("usage: stat soldier <stat|all> <delta> <name>");
+                host.AppendLine($"usage: stat {kind} <stat|all> <delta> <name>");
                 host.AppendLine(
                     "name may contain spaces and matches case-insensitively (substring ok)"
                 );
-                host.AppendLine("for the stat list: stat soldier ?");
+                host.AppendLine($"for the stat list: stat {kind} ?");
                 return;
             }
 
@@ -78,16 +104,16 @@ namespace DevConsole.Runtime.Commands
                 return;
             }
 
-            var matches = StrategyContext.FindActorsByName(world, nameArg);
+            var matches = findByName(world, nameArg);
             if (matches.Count == 0)
             {
-                host.AppendLine($"stat soldier: no soldier matching '{nameArg}'");
+                host.AppendLine($"stat {kind}: no {kind} matching '{nameArg}'");
                 return;
             }
             if (matches.Count > 1)
             {
                 host.AppendLine(
-                    $"stat soldier: '{nameArg}' is ambiguous ({matches.Count} matches):"
+                    $"stat {kind}: '{nameArg}' is ambiguous ({matches.Count} matches):"
                 );
                 foreach (var m in matches.Take(10))
                     host.AppendLine($"  {m.Name().value}");
@@ -98,17 +124,17 @@ namespace DevConsole.Runtime.Commands
             var actor = matches[0];
 
             List<StatEntry> targets;
-            if (string.Equals(statArg, "all", System.StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(statArg, "all", StringComparison.OrdinalIgnoreCase))
             {
-                targets = SoldierStatTable.All.Where(e => e.IncludedInAll).ToList();
+                targets = table.Where(e => e.IncludedInAll).ToList();
             }
-            else if (SoldierStatTable.TryFind(statArg, out var entry))
+            else if (tryFind(statArg, out var entry))
             {
                 targets = new List<StatEntry> { entry };
             }
             else
             {
-                host.AppendLine($"stat soldier: unknown stat '{statArg}' (try 'stat soldier ?')");
+                host.AppendLine($"stat {kind}: unknown stat '{statArg}' (try 'stat {kind} ?')");
                 return;
             }
 
@@ -143,35 +169,34 @@ namespace DevConsole.Runtime.Commands
             if (applied.Count == 0)
             {
                 host.AppendLine(
-                    $"stat soldier ({displayName}): no stats applied (missing components: {string.Join(", ", skipped)})"
+                    $"stat {kind} ({displayName}): no stats applied (missing components: {string.Join(", ", skipped)})"
                 );
                 return;
             }
 
             var sign = delta >= 0 ? "+" : "";
             host.AppendLine(
-                $"stat soldier ({displayName}) {sign}{delta}: {string.Join(", ", applied)}"
+                $"stat {kind} ({displayName}) {sign}{delta}: {string.Join(", ", applied)}"
             );
             if (skipped.Count > 0)
                 host.AppendLine($"  skipped (no component): {string.Join(", ", skipped)}");
             Log.Info(
-                $"{LogPrefix} stat soldier name={displayName} delta={delta} applied=[{string.Join(",", applied)}]"
+                $"{LogPrefix} stat {kind} name={displayName} delta={delta} applied=[{string.Join(",", applied)}]"
             );
         }
 
-        private static void ListSoldierStats(DevConsoleHost host)
+        private static void ListStats(
+            DevConsoleHost host,
+            string kind,
+            IReadOnlyList<StatEntry> table
+        )
         {
-            var inAll = SoldierStatTable
-                .All.Where(e => e.IncludedInAll)
-                .Select(e => e.Name)
-                .ToList();
-            var notInAll = SoldierStatTable
-                .All.Where(e => !e.IncludedInAll)
-                .Select(e => e.Name)
-                .ToList();
-            host.AppendLine("soldier stats:");
+            var inAll = table.Where(e => e.IncludedInAll).Select(e => e.Name).ToList();
+            var notInAll = table.Where(e => !e.IncludedInAll).Select(e => e.Name).ToList();
+            host.AppendLine($"{kind} stats:");
             host.AppendLine("  in 'all': " + string.Join(", ", inAll));
-            host.AppendLine("  excluded from 'all': " + string.Join(", ", notInAll));
+            if (notInAll.Count > 0)
+                host.AppendLine("  excluded from 'all': " + string.Join(", ", notInAll));
         }
 
         private static bool IsHelp(string s) => s == "?" || s == "help";
