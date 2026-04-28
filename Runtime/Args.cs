@@ -1,4 +1,5 @@
 using System.Globalization;
+using static DevConsole.ModConstants;
 
 namespace DevConsole.Runtime
 {
@@ -18,7 +19,7 @@ namespace DevConsole.Runtime
         {
             if (args.Length == n)
                 return true;
-            host.AppendLine($"usage: {usage}");
+            host.AppendLine($"usage: {Cmd(usage)}");
             return false;
         }
 
@@ -31,7 +32,7 @@ namespace DevConsole.Runtime
         {
             if (args.Length >= n)
                 return true;
-            host.AppendLine($"usage: {usage}");
+            host.AppendLine($"usage: {Cmd(usage)}");
             return false;
         }
     }

@@ -7,7 +7,7 @@
 		"Author": "mnshdw",
 		"Website": "",
 		"Tags": ["Mod", "Debug"],
-		"Version": "0.6.0",
+		"Version": "0.7.0",
 		"MinimumVersion": "7.20.4",
 		"$type": "Common.Content.DataStructures.ContentPackManifest"
 	},

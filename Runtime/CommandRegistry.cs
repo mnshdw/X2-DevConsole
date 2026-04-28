@@ -46,7 +46,7 @@ namespace DevConsole.Runtime
 
             if (!Commands.TryGetValue(name, out var cmd))
             {
-                host.AppendLine($"unknown command: {name} (try 'help')");
+                host.AppendLine($"unknown command: {name} (try {Cmd("help")})");
                 return;
             }
 
@@ -70,7 +70,7 @@ namespace DevConsole.Runtime
                 {
                     foreach (var c in Commands.Values.OrderBy(c => c.Name))
                     {
-                        host.AppendLine($"  {c.Help}");
+                        host.AppendLine($"  {ColorizeLeadingName(c)}");
                     }
                 }
             );
@@ -85,6 +85,13 @@ namespace DevConsole.Runtime
             );
 
             BuiltinCommands.RegisterAll();
+        }
+
+        private static string ColorizeLeadingName(Command c)
+        {
+            if (c.Help.StartsWith(c.Name, StringComparison.Ordinal))
+                return Cmd(c.Name) + c.Help.Substring(c.Name.Length);
+            return c.Help;
         }
     }
 }

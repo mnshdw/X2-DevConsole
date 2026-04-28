@@ -36,13 +36,13 @@ namespace DevConsole.Runtime.Commands
 
             CommandRegistry.Register(
                 "spawn",
-                "spawn [species [rank]] - spawn an alien at the mouse cursor. 'spawn ?' lists species; 'spawn <species> ?' lists ranks.",
+                $"spawn [species [rank]] - spawn an alien at the mouse cursor. {Cmd("spawn ?")} lists species; {Cmd("spawn <species> ?")} lists ranks.",
                 ExecuteSpawn
             );
 
             CommandRegistry.Register(
                 "stat",
-                "stat <kind> <stat|all> <delta> [name] - adjust unit stats on Geoscape. 'stat ?' lists kinds; 'stat <kind> ?' lists stats.",
+                $"stat <kind> <stat|all> <delta> [name] - adjust unit stats on Geoscape. {Cmd("stat ?")} lists kinds; {Cmd("stat <kind> ?")} lists stats.",
                 StatCommand.Execute
             );
         }
@@ -162,7 +162,7 @@ namespace DevConsole.Runtime.Commands
         {
             if (args.Length > 2)
             {
-                host.AppendLine("usage: spawn [species [rank]]");
+                host.AppendLine($"usage: {Cmd("spawn [species [rank]]")}");
                 return;
             }
             var speciesName = args.Length >= 1 ? args[0] : null;
@@ -181,7 +181,7 @@ namespace DevConsole.Runtime.Commands
                 {
                     host.AppendLine($"species with shipped loadouts ({species.Count}):");
                     host.AppendLine("  " + string.Join(", ", species));
-                    host.AppendLine("for ranks: spawn <species> ?");
+                    host.AppendLine($"for ranks: {Cmd("spawn <species> ?")}");
                     host.AppendLine(
                         "with no arg, spawn copies the species of any alien already on the map"
                     );
@@ -198,7 +198,7 @@ namespace DevConsole.Runtime.Commands
                 if (ranks.Count == 0)
                 {
                     host.AppendLine(
-                        $"no shipped loadouts for species '{speciesName}' (try 'spawn ?' for the list)"
+                        $"no shipped loadouts for species '{speciesName}' (try {Cmd("spawn ?")} for the list)"
                     );
                 }
                 else
@@ -256,7 +256,7 @@ namespace DevConsole.Runtime.Commands
             _warnedThisSession = true;
             const string msg =
                 "warning: state-mutating commands can corrupt save state. Save before using.";
-            host.AppendLine(msg);
+            host.AppendLine($"<color=#ffd166>{msg}</color>");
             Log.Info($"{LogPrefix} {msg}");
         }
     }

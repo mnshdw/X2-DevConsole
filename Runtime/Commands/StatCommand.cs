@@ -23,9 +23,9 @@ namespace DevConsole.Runtime.Commands
         {
             if (args.Length == 0 || IsHelp(args[0]))
             {
-                host.AppendLine($"usage: {Usage}");
+                host.AppendLine($"usage: {Cmd(Usage)}");
                 host.AppendLine("kinds: " + string.Join(", ", Kinds));
-                host.AppendLine("for stats of a kind: stat <kind> ?");
+                host.AppendLine($"for stats of a kind: {Cmd("stat <kind> ?")}");
                 return;
             }
 
@@ -53,7 +53,7 @@ namespace DevConsole.Runtime.Commands
                     );
                     return;
                 default:
-                    host.AppendLine($"stat: unknown kind '{args[0]}' (try 'stat ?')");
+                    host.AppendLine($"stat: unknown kind '{args[0]}' (try {Cmd("stat ?")})");
                     return;
             }
         }
@@ -80,11 +80,11 @@ namespace DevConsole.Runtime.Commands
 
             if (args.Length < 4)
             {
-                host.AppendLine($"usage: stat {kind} <stat|all> <delta> <name>");
+                host.AppendLine($"usage: {Cmd($"stat {kind} <stat|all> <delta> <name>")}");
                 host.AppendLine(
                     "name may contain spaces and matches case-insensitively (substring ok)"
                 );
-                host.AppendLine($"for the stat list: stat {kind} ?");
+                host.AppendLine($"for the stat list: {Cmd($"stat {kind} ?")}");
                 return;
             }
 
@@ -134,7 +134,9 @@ namespace DevConsole.Runtime.Commands
             }
             else
             {
-                host.AppendLine($"stat {kind}: unknown stat '{statArg}' (try 'stat {kind} ?')");
+                host.AppendLine(
+                    $"stat {kind}: unknown stat '{statArg}' (try {Cmd($"stat {kind} ?")})"
+                );
                 return;
             }
 
