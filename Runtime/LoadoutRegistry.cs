@@ -27,9 +27,20 @@ namespace DevConsole.Runtime
         }
 
         private static Dictionary<string, List<Combo>>? _cache;
+        private static readonly Dictionary<string, List<Combo>> Empty = new();
 
-        public static IReadOnlyDictionary<string, List<Combo>> All =>
-            _cache ??= TryBuild() ?? new Dictionary<string, List<Combo>>();
+        public static IReadOnlyDictionary<string, List<Combo>> All
+        {
+            get
+            {
+                if (_cache != null)
+                    return _cache;
+                var built = TryBuild();
+                if (built != null)
+                    _cache = built;
+                return built ?? Empty;
+            }
+        }
 
         public static bool TryGet(string speciesValue, out List<Combo> combos)
         {
