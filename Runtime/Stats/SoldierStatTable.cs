@@ -57,7 +57,7 @@ namespace DevConsole.Runtime.Stats
                 true,
                 true
             ),
-            // Strategy doesn't re-derive HitPoints from UnmodifiedHitPoints, so all
+            // Geoscape doesn't re-derive HitPoints from UnmodifiedHitPoints, so all
             // three components must be raised together: base ceiling, current HP,
             // and the Stun ceiling that tracks HP Max.
             new StatEntry(

@@ -6,16 +6,35 @@ using static DevConsole.ModConstants;
 
 namespace DevConsole.Runtime
 {
-    public readonly struct Command
+    [Flags]
+    public enum Scene
     {
-        public readonly string Name;
-        public readonly string Help;
-        public readonly Action<string[], DevConsoleHost> Handler;
+        Global = 1,
+        Geoscape = 2,
+        GroundCombat = 4,
+    }
 
-        public Command(string name, string help, Action<string[], DevConsoleHost> handler)
+    public class HelpEntry
+    {
+        public string Signature;
+        public string[] DescriptionLines;
+
+        public HelpEntry(string signature, string[] descriptionLines)
+        {
+            Signature = signature;
+            DescriptionLines = descriptionLines;
+        }
+    }
+
+    public class Command
+    {
+        public string Name;
+        public Action<string[], DevConsoleHost> Handler;
+        public Dictionary<Scene, HelpEntry> HelpByScene = new();
+
+        public Command(string name, Action<string[], DevConsoleHost> handler)
         {
             Name = name;
-            Help = help;
             Handler = handler;
         }
     }
@@ -28,11 +47,18 @@ namespace DevConsole.Runtime
 
         public static void Register(
             string name,
-            string help,
-            Action<string[], DevConsoleHost> handler
+            Scene scene,
+            Action<string[], DevConsoleHost> handler,
+            string signature,
+            params string[] descriptionLines
         )
         {
-            Commands[name] = new Command(name, help, handler);
+            if (!Commands.TryGetValue(name, out var cmd))
+            {
+                cmd = new Command(name, handler);
+                Commands[name] = cmd;
+            }
+            cmd.HelpByScene[scene] = new HelpEntry(signature, descriptionLines);
         }
 
         public static void Execute(string line, DevConsoleHost host)
@@ -65,33 +91,46 @@ namespace DevConsole.Runtime
         {
             Register(
                 "help",
-                "help - list registered commands",
-                (_, host) =>
-                {
-                    foreach (var c in Commands.Values.OrderBy(c => c.Name))
-                    {
-                        host.AppendLine($"  {ColorizeLeadingName(c)}");
-                    }
-                }
+                Scene.Global,
+                (_, host) => PrintHelp(host),
+                "help",
+                "list all commands"
             );
 
             Register(
                 "clear",
-                "clear - empty the console",
-                (_, host) =>
-                {
-                    host.Clear();
-                }
+                Scene.Global,
+                (_, host) => host.Clear(),
+                "clear",
+                "clear the console"
             );
 
             BuiltinCommands.RegisterAll();
         }
 
-        private static string ColorizeLeadingName(Command c)
+        private static void PrintHelp(DevConsoleHost host)
         {
-            if (c.Help.StartsWith(c.Name, StringComparison.Ordinal))
-                return Cmd(c.Name) + c.Help.Substring(c.Name.Length);
-            return c.Help;
+            PrintSection(host, "Global", Scene.Global);
+            PrintSection(host, "Geoscape", Scene.Geoscape);
+            PrintSection(host, "GroundCombat", Scene.GroundCombat);
+        }
+
+        private static void PrintSection(DevConsoleHost host, string label, Scene scene)
+        {
+            var entries = Commands
+                .Values.Where(c => c.HelpByScene.ContainsKey(scene))
+                .OrderBy(c => c.Name)
+                .Select(c => (c.Name, Help: c.HelpByScene[scene]))
+                .ToList();
+            if (entries.Count == 0)
+                return;
+
+            host.AppendLine($"{label}:");
+            foreach (var (_, help) in entries)
+            {
+                var desc = string.Join("; ", help.DescriptionLines);
+                host.AppendLine($"  {Sig(help.Signature)} - {desc}");
+            }
         }
     }
 }

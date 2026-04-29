@@ -26,9 +26,7 @@ namespace DevConsole.Runtime
             player = world.GetPlayer(XenonautsConstants.Players.XENONAUT);
             if (player == null)
             {
-                Log.Error(
-                    $"{LogPrefix} StrategyContext: no XENONAUT player entity in PlayersGroup"
-                );
+                Log.Error($"{LogPrefix} StrategyContext: XENONAUT player not found");
                 return false;
             }
             return true;
@@ -73,6 +71,22 @@ namespace DevConsole.Runtime
 
         public static List<Entity> FindAircraftByName(World world, string query) =>
             FindByName(EnumerateAircraft(world), query);
+
+        public class NamedMatches
+        {
+            public List<Entity> Actors { get; }
+            public List<Entity> Aircraft { get; }
+            public int Total => Actors.Count + Aircraft.Count;
+
+            public NamedMatches(List<Entity> actors, List<Entity> aircraft)
+            {
+                Actors = actors;
+                Aircraft = aircraft;
+            }
+        }
+
+        public static NamedMatches FindNamed(World world, string query) =>
+            new NamedMatches(FindActorsByName(world, query), FindAircraftByName(world, query));
 
         private static List<Entity> FindByName(IEnumerable<Entity> entities, string query)
         {
@@ -119,6 +133,37 @@ namespace DevConsole.Runtime
                 return null;
             var range = (RangeComponent)actor.Get(componentType);
             return maximum ? range.Maximum : range.Value;
+        }
+
+        // Raises a stat to its maximum.
+        public static bool MaxStat(Entity actor, Type componentType, out bool changed)
+        {
+            changed = false;
+            if (!actor.Has(componentType))
+                return false;
+            var clone = (RangeComponent)actor.Get(componentType).Clone();
+            var delta = clone.Maximum - clone.Value;
+            if (delta == 0f)
+                return true;
+            RangeModifier.Modify(clone, RangeModifier.Operation.Additive, delta, 0f, 0f);
+            actor.Add(clone);
+            changed = true;
+            return true;
+        }
+
+        // Sets a stat to zero.
+        public static bool ZeroStat(Entity actor, Type componentType, out bool changed)
+        {
+            changed = false;
+            if (!actor.Has(componentType))
+                return false;
+            var clone = (RangeComponent)actor.Get(componentType).Clone();
+            if (clone.Value == 0f)
+                return true;
+            RangeModifier.Modify(clone, RangeModifier.Operation.Additive, -clone.Value, 0f, 0f);
+            actor.Add(clone);
+            changed = true;
+            return true;
         }
     }
 }

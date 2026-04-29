@@ -19,6 +19,7 @@ namespace DevConsole.Runtime
         private string _input = "";
         private readonly Queue<string> _output = new();
         private Vector2 _scroll;
+        private bool _followBottom = true;
         private bool _focusNextFrame;
         private bool _registered;
         private GUIStyle? _labelStyle;
@@ -138,6 +139,10 @@ namespace DevConsole.Runtime
             );
 
             var contentH = _output.Count * lineH;
+            var maxScroll = Mathf.Max(0, contentH - outputRect.height);
+            // Stick to bottom on new output unless the user has scrolled up.
+            if (_followBottom)
+                _scroll.y = maxScroll;
             _scroll = GUI.BeginScrollView(
                 outputRect,
                 _scroll,
@@ -150,8 +155,7 @@ namespace DevConsole.Runtime
                 y += lineH;
             }
             GUI.EndScrollView();
-
-            _scroll.y = float.MaxValue;
+            _followBottom = _scroll.y >= maxScroll - 1f;
 
             GUI.SetNextControlName(InputControlName);
             _input = GUI.TextField(inputRect, _input, _inputStyle);

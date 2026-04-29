@@ -1,4 +1,6 @@
+using System.Collections.Generic;
 using System.Linq;
+using Xenonauts.Common.Stats;
 using static DevConsole.ModConstants;
 
 namespace DevConsole.Runtime.Commands
@@ -12,38 +14,74 @@ namespace DevConsole.Runtime.Commands
         {
             CommandRegistry.Register(
                 "funds",
-                "funds <delta> - adjust Cash on Geoscape (e.g. funds 5000, funds -1000)",
-                ExecuteFunds
+                Scene.Geoscape,
+                ExecuteFunds,
+                "funds <delta>",
+                "add or remove Cash (eg. funds 5000, funds -1000)"
             );
 
             CommandRegistry.Register(
                 "op",
-                "op <delta> - adjust Operation Points on Geoscape (e.g. op 5)",
-                ExecuteOp
-            );
-
-            CommandRegistry.Register(
-                "xray",
-                "xray - toggle X-ray vision on enemy silhouettes (does not lift fog of war)",
-                ExecuteXray
-            );
-
-            CommandRegistry.Register(
-                "kill",
-                "kill - kill the combatant under the mouse cursor",
-                ExecuteKill
-            );
-
-            CommandRegistry.Register(
-                "spawn",
-                $"spawn [species [rank]] - spawn an alien at the mouse cursor. {Cmd("spawn ?")} lists species; {Cmd("spawn <species> ?")} lists ranks.",
-                ExecuteSpawn
+                Scene.Geoscape,
+                ExecuteOp,
+                "op <delta>",
+                "add or remove Operation Points"
             );
 
             CommandRegistry.Register(
                 "stat",
-                $"stat <kind> <stat|all> <delta> [name] - adjust unit stats on Geoscape. {Cmd("stat ?")} lists kinds; {Cmd("stat <kind> ?")} lists stats.",
-                StatCommand.Execute
+                Scene.Geoscape,
+                StatCommand.Execute,
+                "stat <stat|all> <delta> <name>",
+                "adjust a soldier or aircraft's stats (eg. stat strength 5 jones, stat fuel 50 angel)",
+                "stat ? lists stats per kind"
+            );
+
+            CommandRegistry.Register(
+                "restore",
+                Scene.Geoscape,
+                ExecuteRestore,
+                "restore <stat|all> <name>",
+                "restore stats by name",
+                "soldier: health, timeunits",
+                "aircraft: health, fuel, armor",
+                "restore ? lists stats"
+            );
+
+            CommandRegistry.Register(
+                "xray",
+                Scene.GroundCombat,
+                ExecuteXray,
+                "xray",
+                "toggle X-ray vision on enemy silhouettes (does not lift fog of war)"
+            );
+
+            CommandRegistry.Register(
+                "kill",
+                Scene.GroundCombat,
+                ExecuteKill,
+                "kill",
+                "kill the combatant under the mouse cursor"
+            );
+
+            CommandRegistry.Register(
+                "spawn",
+                Scene.GroundCombat,
+                ExecuteSpawn,
+                "spawn [species [rank]]",
+                "spawn an alien on the tile under the mouse cursor",
+                "with no arg, copies from an alien on the map",
+                "spawn ? lists species",
+                "spawn <species> ? lists ranks"
+            );
+
+            CommandRegistry.Register(
+                "restore",
+                Scene.GroundCombat,
+                ExecuteRestore,
+                "restore <stat|all>",
+                "restore stats for the combatant under the mouse cursor",
+                "restore ? lists stats"
             );
         }
 
@@ -58,19 +96,19 @@ namespace DevConsole.Runtime.Commands
             }
             if (!StrategyContext.TryGetWorld(out var world))
             {
-                host.AppendLine("not in Strategy");
+                host.AppendLine("not in Geoscape");
                 return;
             }
             if (!StrategyContext.TryGetPlayer(world, out var player))
             {
-                host.AppendLine("could not find XENONAUT player entity");
+                host.AppendLine("could not find player entity");
                 return;
             }
             WarnOnce(host);
             var newValue = StrategyContext.AddCash(player, delta);
             if (newValue == null)
             {
-                host.AppendLine("XENONAUT player has no Cash component");
+                host.AppendLine("player has no Cash component");
                 return;
             }
             host.AppendLine($"funds: {(delta >= 0 ? "+" : "")}{delta} => ${newValue:N0}");
@@ -88,19 +126,19 @@ namespace DevConsole.Runtime.Commands
             }
             if (!StrategyContext.TryGetWorld(out var world))
             {
-                host.AppendLine("not in Strategy");
+                host.AppendLine("not in Geoscape");
                 return;
             }
             if (!StrategyContext.TryGetPlayer(world, out var player))
             {
-                host.AppendLine("could not find XENONAUT player entity");
+                host.AppendLine("could not find player entity");
                 return;
             }
             WarnOnce(host);
             var newValue = StrategyContext.AddOp(player, delta);
             if (newValue == null)
             {
-                host.AppendLine("XENONAUT player has no OperationPoints component");
+                host.AppendLine("player has no OperationPoints component");
                 return;
             }
             host.AppendLine($"op: {(delta >= 0 ? "+" : "")}{delta} => {newValue:N0}");
@@ -162,7 +200,7 @@ namespace DevConsole.Runtime.Commands
         {
             if (args.Length > 2)
             {
-                host.AppendLine($"usage: {Cmd("spawn [species [rank]]")}");
+                host.AppendLine($"usage: {Sig("spawn [species [rank]]")}");
                 return;
             }
             var speciesName = args.Length >= 1 ? args[0] : null;
@@ -181,7 +219,7 @@ namespace DevConsole.Runtime.Commands
                 {
                     host.AppendLine($"species with shipped loadouts ({species.Count}):");
                     host.AppendLine("  " + string.Join(", ", species));
-                    host.AppendLine($"for ranks: {Cmd("spawn <species> ?")}");
+                    host.AppendLine($"for ranks: {Sig("spawn <species> ?")}");
                     host.AppendLine(
                         "with no arg, spawn copies the species of any alien already on the map"
                     );
@@ -198,7 +236,7 @@ namespace DevConsole.Runtime.Commands
                 if (ranks.Count == 0)
                 {
                     host.AppendLine(
-                        $"no shipped loadouts for species '{speciesName}' (try {Cmd("spawn ?")} for the list)"
+                        $"no shipped loadouts for species '{speciesName}' (try {Sig("spawn ?")} for the list)"
                     );
                 }
                 else
@@ -247,6 +285,194 @@ namespace DevConsole.Runtime.Commands
             if (species == null)
                 return "auto";
             return rank == null ? species : $"{species}/{rank}";
+        }
+
+        // Restore vocabulary by entity kind. Components touched are RangeComponents;
+        // MaxStat raises Value to Maximum, except for Stun (cleared via ZeroStat).
+        private static readonly string[] SoldierRestorables = { "health", "timeunits" };
+        private static readonly string[] AircraftRestorables = { "health", "fuel", "armor" };
+
+        private static void ExecuteRestore(string[] args, DevConsoleHost host)
+        {
+            if (args.Length == 0 || args[0] == "?" || args[0] == "help")
+            {
+                host.AppendLine($"usage: {Sig("restore <stat|all> [name]")}");
+                host.AppendLine($"  soldier: {string.Join(", ", SoldierRestorables)}");
+                host.AppendLine($"  aircraft: {string.Join(", ", AircraftRestorables)}");
+                host.AppendLine("GroundCombat: targets the unit under cursor (no name)");
+                host.AppendLine("Geoscape: matches a soldier or aircraft by name");
+                return;
+            }
+            var statArg = args[0].ToLowerInvariant();
+            if (
+                statArg != "all"
+                && !SoldierRestorables.Contains(statArg)
+                && !AircraftRestorables.Contains(statArg)
+            )
+            {
+                host.AppendLine($"restore: unknown stat '{args[0]}' (try {Sig("restore ?")})");
+                return;
+            }
+
+            if (GroundCombatContext.TryGetWorld(out var gcWorld))
+            {
+                if (args.Length > 1)
+                {
+                    host.AppendLine(
+                        "restore: in GroundCombat the target is the unit under cursor (no name)"
+                    );
+                    return;
+                }
+                if (!GroundCombatContext.TryGetCursorPick(gcWorld, out var target, out _))
+                {
+                    host.AppendLine("no cursor pick yet (move the mouse over a tile first)");
+                    return;
+                }
+                if (target == null)
+                {
+                    host.AppendLine("no entity under cursor");
+                    return;
+                }
+                ApplyRestoreSoldier(host, target, statArg);
+                return;
+            }
+
+            if (StrategyContext.TryGetWorld(out var stratWorld))
+            {
+                if (args.Length < 2)
+                {
+                    host.AppendLine($"usage: {Sig("restore <stat|all> <name>")}");
+                    return;
+                }
+                var nameArg = string.Join(" ", args.Skip(1));
+                var matches = StrategyContext.FindNamed(stratWorld, nameArg);
+                if (matches.Total == 0)
+                {
+                    host.AppendLine($"restore: no soldier or aircraft matching '{nameArg}'");
+                    return;
+                }
+                if (matches.Total > 1)
+                {
+                    host.AppendLine(
+                        $"restore: '{nameArg}' is ambiguous ({matches.Total} matches):"
+                    );
+                    foreach (var m in matches.Actors.Concat(matches.Aircraft).Take(10))
+                        host.AppendLine($"  {m.Name().value}");
+                    if (matches.Total > 10)
+                        host.AppendLine($"  ... and {matches.Total - 10} more");
+                    return;
+                }
+                if (matches.Actors.Count == 1)
+                    ApplyRestoreSoldier(host, matches.Actors[0], statArg);
+                else
+                    ApplyRestoreAircraft(host, matches.Aircraft[0], statArg);
+                return;
+            }
+
+            host.AppendLine("not in Geoscape or GroundCombat");
+        }
+
+        private static void ApplyRestoreSoldier(
+            DevConsoleHost host,
+            Artitas.Entity target,
+            string statArg
+        )
+        {
+            var applied = new List<string>();
+            var noop = new List<string>();
+            if (statArg == "all" || statArg == "health")
+            {
+                var hpExists = StrategyContext.MaxStat(
+                    target,
+                    typeof(HitPoints),
+                    out var hpChanged
+                );
+                if (hpExists)
+                {
+                    StrategyContext.ZeroStat(target, typeof(Stun), out var stunChanged);
+                    if (hpChanged || stunChanged)
+                        applied.Add("health");
+                    else
+                        noop.Add("health");
+                }
+            }
+            if (statArg == "all" || statArg == "timeunits")
+            {
+                if (StrategyContext.MaxStat(target, typeof(TimeUnits), out var tuChanged))
+                    (tuChanged ? applied : noop).Add("timeunits");
+            }
+            ReportRestore(host, target, applied, noop, statArg);
+        }
+
+        private static void ApplyRestoreAircraft(
+            DevConsoleHost host,
+            Artitas.Entity target,
+            string statArg
+        )
+        {
+            var applied = new List<string>();
+            var noop = new List<string>();
+            if (statArg == "all" || statArg == "health")
+            {
+                if (StrategyContext.MaxStat(target, typeof(HitPoints), out var hpChanged))
+                    (hpChanged ? applied : noop).Add("health");
+            }
+            if (statArg == "all" || statArg == "fuel")
+            {
+                if (
+                    StrategyContext.MaxStat(
+                        target,
+                        typeof(Xenonauts.Strategy.Components.Fuel),
+                        out var fuelChanged
+                    )
+                )
+                    (fuelChanged ? applied : noop).Add("fuel");
+            }
+            if (statArg == "all" || statArg == "armor")
+            {
+                if (
+                    StrategyContext.MaxStat(
+                        target,
+                        typeof(Xenonauts.Strategy.Components.AirCombatArmorComponent),
+                        out var armorChanged
+                    )
+                )
+                    (armorChanged ? applied : noop).Add("armor");
+            }
+            ReportRestore(host, target, applied, noop, statArg);
+        }
+
+        private static void ReportRestore(
+            DevConsoleHost host,
+            Artitas.Entity target,
+            List<string> applied,
+            List<string> noop,
+            string statArg
+        )
+        {
+            var name = target.HasName() ? target.Name().value : target.ToString();
+            if (applied.Count == 0 && noop.Count == 0)
+            {
+                host.AppendLine(
+                    statArg == "all"
+                        ? $"restore ({name}): no restorable components"
+                        : $"restore ({name}): '{statArg}' not applicable to this target"
+                );
+                return;
+            }
+            if (applied.Count == 0)
+            {
+                host.AppendLine($"restore ({name}): already at max ({string.Join(", ", noop)})");
+                return;
+            }
+            WarnOnce(host);
+            var msg = $"restore ({name}): {string.Join(", ", applied)}";
+            if (noop.Count > 0)
+                msg += $" (already at max: {string.Join(", ", noop)})";
+            host.AppendLine(msg);
+            Log.Info(
+                $"{LogPrefix} restore: target={target} applied=[{string.Join(",", applied)}] noop=[{string.Join(",", noop)}]"
+            );
         }
 
         public static void WarnOnce(DevConsoleHost host)

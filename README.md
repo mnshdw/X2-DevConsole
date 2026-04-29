@@ -21,17 +21,21 @@ Press **Alt+G** in-game to toggle the console overlay. Type `help` to list avail
 - `help` - list all commands
 - `clear` - clear the console
 
+Note: commands that take `<name>` match with case-insensitive substring, for example `john` matches `John Russel`. The console will print candidates when there are multiple matches. Rank prefixes (eg. `PVT.`/`CPL.`) are not part of the name.
+
 **Geoscape**:
 
 - `funds <delta>` - add or remove Cash (e.g. `funds 5000`, `funds -1000`)
 - `op <delta>` - add or remove Operation Points
-- `stat <kind> <stat|all> <delta> <name>` - adjust unit stats (e.g. `stat soldier strength 5 jones`, `stat soldier all -2 moon`, `stat aircraft fuel 50 angel`). Kinds: `soldier`, `aircraft`. Name is case-insensitive and matches as a substring; the rank prefix (eg. `PVT.`/`CPL.`) is not part of the name. `stat ?` lists kinds, `stat <kind> ?` lists stats.
+- `stat <stat|all> <delta> <name>` - adjust unit stats (eg. `stat strength 5 jones`, `stat all -2 moon`, `stat fuel 50 angel`). `stat ?` lists stats per kind
+- `restore <stat|all> <name>` - restore stats; for soldiers `health`, `timeunits`; for aircrafts `health`, `fuel`, `armor`
 
 **GroundCombat**:
 
 - `xray` - toggle X-ray vision on enemy silhouettes (does not lift fog of war)
 - `kill` - kill the combatant under the mouse cursor
 - `spawn [species [rank]]` - spawn an alien on the tile under the mouse cursor; with no arg, copies from an alien on the map; `spawn ?` lists species, `spawn <species> ?` lists ranks
+- `restore <stat|all>` - restore stats for the combatant under the mouse cursor (eg. `restore health`); `restore ?` lists stats
 
 WARNING: Most commands modify live game state and can corrupt save files. **Save before using.**
 

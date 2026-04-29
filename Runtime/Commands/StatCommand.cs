@@ -7,90 +7,33 @@ using static DevConsole.ModConstants;
 
 namespace DevConsole.Runtime.Commands
 {
-    // stat <kind> <stat|all> <delta> [name]
-    //   kinds: soldier, aircraft
-    //   stat:  one of the names in the kind's stat table, or 'all' to apply the
+    // stat <stat|all> <delta> <name>
+    //   stat:  one of the names in the target stat table, or 'all' to apply the
     //          delta to every stat flagged IncludedInAll
     //   delta: signed integer (use '5' or '-5'; '+5' is rejected)
     //   name:  case-insensitive substring match
     public static class StatCommand
     {
-        private const string Usage = "stat <kind> <stat|all> <delta> [name]";
-
-        private static readonly string[] Kinds = { "soldier", "aircraft" };
+        private const string Usage = "stat <stat|all> <delta> <name>";
 
         public static void Execute(string[] args, DevConsoleHost host)
         {
             if (args.Length == 0 || IsHelp(args[0]))
             {
-                host.AppendLine($"usage: {Cmd(Usage)}");
-                host.AppendLine("kinds: " + string.Join(", ", Kinds));
-                host.AppendLine($"for stats of a kind: {Cmd("stat <kind> ?")}");
+                ListStats(host);
                 return;
             }
 
-            var kind = args[0].ToLowerInvariant();
-            switch (kind)
+            if (args.Length < 3)
             {
-                case "soldier":
-                    ExecuteForKind(
-                        "soldier",
-                        args,
-                        host,
-                        SoldierStatTable.All,
-                        SoldierStatTable.TryFind,
-                        StrategyContext.FindActorsByName
-                    );
-                    return;
-                case "aircraft":
-                    ExecuteForKind(
-                        "aircraft",
-                        args,
-                        host,
-                        AircraftStatTable.All,
-                        AircraftStatTable.TryFind,
-                        StrategyContext.FindAircraftByName
-                    );
-                    return;
-                default:
-                    host.AppendLine($"stat: unknown kind '{args[0]}' (try {Cmd("stat ?")})");
-                    return;
-            }
-        }
-
-        private delegate bool TryFindStat(string name, out StatEntry entry);
-
-        private delegate List<Entity> FindByName(World world, string query);
-
-        private static void ExecuteForKind(
-            string kind,
-            string[] args,
-            DevConsoleHost host,
-            IReadOnlyList<StatEntry> table,
-            TryFindStat tryFind,
-            FindByName findByName
-        )
-        {
-            // args[0] = kind
-            if (args.Length >= 2 && IsHelp(args[1]))
-            {
-                ListStats(host, kind, table);
+                host.AppendLine($"usage: {Sig(Usage)}");
+                host.AppendLine($"for the stat list: {Cmd("stat")} ?");
                 return;
             }
 
-            if (args.Length < 4)
-            {
-                host.AppendLine($"usage: {Cmd($"stat {kind} <stat|all> <delta> <name>")}");
-                host.AppendLine(
-                    "name may contain spaces and matches case-insensitively (substring ok)"
-                );
-                host.AppendLine($"for the stat list: {Cmd($"stat {kind} ?")}");
-                return;
-            }
-
-            var statArg = args[1];
-            var deltaArg = args[2];
-            var nameArg = string.Join(" ", args.Skip(3));
+            var statArg = args[0];
+            var deltaArg = args[1];
+            var nameArg = string.Join(" ", args.Skip(2));
 
             if (!Args.TryParseInt(deltaArg, out var delta))
             {
@@ -100,28 +43,44 @@ namespace DevConsole.Runtime.Commands
 
             if (!StrategyContext.TryGetWorld(out var world))
             {
-                host.AppendLine("not in Strategy");
+                host.AppendLine("not in Geoscape");
                 return;
             }
 
-            var matches = findByName(world, nameArg);
-            if (matches.Count == 0)
+            var matches = StrategyContext.FindNamed(world, nameArg);
+            if (matches.Total == 0)
             {
-                host.AppendLine($"stat {kind}: no {kind} matching '{nameArg}'");
+                host.AppendLine($"stat: no match for '{nameArg}'");
                 return;
             }
-            if (matches.Count > 1)
+            if (matches.Total > 1)
             {
-                host.AppendLine(
-                    $"stat {kind}: '{nameArg}' is ambiguous ({matches.Count} matches):"
-                );
-                foreach (var m in matches.Take(10))
+                host.AppendLine($"stat: '{nameArg}' is ambiguous ({matches.Total} matches):");
+                foreach (var m in matches.Actors.Concat(matches.Aircraft).Take(10))
                     host.AppendLine($"  {m.Name().value}");
-                if (matches.Count > 10)
-                    host.AppendLine($"  ... and {matches.Count - 10} more");
+                if (matches.Total > 10)
+                    host.AppendLine($"  ... and {matches.Total - 10} more");
                 return;
             }
-            var actor = matches[0];
+
+            Entity target;
+            string kind;
+            IReadOnlyList<StatEntry> table;
+            TryFindStat tryFind;
+            if (matches.Actors.Count == 1)
+            {
+                target = matches.Actors[0];
+                kind = "soldier";
+                table = SoldierStatTable.All;
+                tryFind = SoldierStatTable.TryFind;
+            }
+            else
+            {
+                target = matches.Aircraft[0];
+                kind = "aircraft";
+                table = AircraftStatTable.All;
+                tryFind = AircraftStatTable.TryFind;
+            }
 
             List<StatEntry> targets;
             if (string.Equals(statArg, "all", StringComparison.OrdinalIgnoreCase))
@@ -134,15 +93,13 @@ namespace DevConsole.Runtime.Commands
             }
             else
             {
-                host.AppendLine(
-                    $"stat {kind}: unknown stat '{statArg}' (try {Cmd($"stat {kind} ?")})"
-                );
+                host.AppendLine($"stat: '{statArg}' is not a {kind} stat (try {Cmd("stat")} ?)");
                 return;
             }
 
             BuiltinCommands.WarnOnce(host);
 
-            var displayName = actor.HasName() ? actor.Name().value : nameArg;
+            var displayName = target.HasName() ? target.Name().value : nameArg;
             var applied = new List<string>();
             var skipped = new List<string>();
             foreach (var entry in targets)
@@ -151,7 +108,7 @@ namespace DevConsole.Runtime.Commands
                 foreach (var change in entry.Changes)
                 {
                     var ok = StrategyContext.AddStat(
-                        actor,
+                        target,
                         change.ComponentType,
                         delta,
                         change.MaxOnly
@@ -164,7 +121,7 @@ namespace DevConsole.Runtime.Commands
                     skipped.Add(entry.Name);
                     continue;
                 }
-                var shown = StrategyContext.ReadStat(actor, entry.ReadType, entry.ReadMaximum);
+                var shown = StrategyContext.ReadStat(target, entry.ReadType, entry.ReadMaximum);
                 applied.Add(shown.HasValue ? $"{entry.Name}={shown:0}" : $"{entry.Name}=?");
             }
 
@@ -187,15 +144,24 @@ namespace DevConsole.Runtime.Commands
             );
         }
 
-        private static void ListStats(
+        private delegate bool TryFindStat(string name, out StatEntry entry);
+
+        private static void ListStats(DevConsoleHost host)
+        {
+            host.AppendLine($"usage: {Sig(Usage)}");
+            DumpKind(host, "soldier", SoldierStatTable.All);
+            DumpKind(host, "aircraft", AircraftStatTable.All);
+        }
+
+        private static void DumpKind(
             DevConsoleHost host,
-            string kind,
+            string label,
             IReadOnlyList<StatEntry> table
         )
         {
             var inAll = table.Where(e => e.IncludedInAll).Select(e => e.Name).ToList();
             var notInAll = table.Where(e => !e.IncludedInAll).Select(e => e.Name).ToList();
-            host.AppendLine($"{kind} stats:");
+            host.AppendLine($"{label}:");
             host.AppendLine("  in 'all': " + string.Join(", ", inAll));
             if (notInAll.Count > 0)
                 host.AppendLine("  excluded from 'all': " + string.Join(", ", notInAll));
