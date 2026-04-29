@@ -6,8 +6,8 @@
 		"Description": "Dev console for Xenonauts 2: provides debug actions otherwise unavailable to players.",
 		"Author": "mnshdw",
 		"Website": "",
-		"Tags": ["Mod", "Debug"],
-		"Version": "0.7.0",
+		"Tags": ["Utility", "Debug"],
+		"Version": "0.8.0",
 		"MinimumVersion": "7.20.4",
 		"$type": "Common.Content.DataStructures.ContentPackManifest"
 	},
