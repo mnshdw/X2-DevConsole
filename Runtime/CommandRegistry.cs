@@ -58,6 +58,12 @@ namespace DevConsole.Runtime
                 cmd = new Command(name, handler);
                 Commands[name] = cmd;
             }
+            else if (cmd.Handler != handler)
+            {
+                Log.Error(
+                    $"{LogPrefix} '{name}' re-registered with a different handler; later handler is ignored"
+                );
+            }
             cmd.HelpByScene[scene] = new HelpEntry(signature, descriptionLines);
         }
 
@@ -66,7 +72,7 @@ namespace DevConsole.Runtime
             if (string.IsNullOrWhiteSpace(line))
                 return;
 
-            var tokens = line.Trim().Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+            var tokens = line.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
             var name = tokens[0];
             var args = tokens.Skip(1).ToArray();
 

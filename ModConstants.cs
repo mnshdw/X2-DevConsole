@@ -4,7 +4,7 @@ using log4net;
 
 namespace DevConsole
 {
-    public class ModConstants
+    public static class ModConstants
     {
         public const string LogPrefix = "[DevConsole]";
 

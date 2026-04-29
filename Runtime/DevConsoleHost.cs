@@ -234,8 +234,6 @@ namespace DevConsole.Runtime
                 _labelStyle.font = gameFont;
                 _inputStyle.font = gameFont;
             }
-
-            _historyCursor = _history.Count;
         }
 
         private static Texture2D MakeTex(Color c)
@@ -332,6 +330,8 @@ namespace DevConsole.Runtime
         public void Clear()
         {
             _output.Clear();
+            _scroll = Vector2.zero;
+            _followBottom = true;
         }
 
         private void OnDestroy()
