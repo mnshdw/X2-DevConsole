@@ -28,7 +28,7 @@ Note: commands that take `<name>` match with case-insensitive substring, for exa
 - `funds <delta>` - add or remove Cash (e.g. `funds 5000`, `funds -1000`)
 - `op <delta>` - add or remove Operation Points
 - `stat <stat|all> <delta> <name>` - adjust unit stats (eg. `stat strength 5 jones`, `stat all -2 moon`, `stat fuel 50 angel`). `stat ?` lists stats per kind
-- `restore <stat|all> <name>` - restore stats; for soldiers `health`, `timeunits`; for aircrafts `health`, `fuel`, `armor`
+- `restore <stat|all> <name>` - restore stats; for soldiers `health`, `timeunits`; for aircrafts `health`, `fuel`, `armor`; `restore ?` lists stats
 
 **GroundCombat**:
 
