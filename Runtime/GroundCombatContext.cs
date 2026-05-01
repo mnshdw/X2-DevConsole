@@ -130,6 +130,20 @@ namespace DevConsole.Runtime
                     Log.Error($"{LogPrefix} {reason} (species={speciesName ?? "auto"})");
                     return false;
                 }
+                // SpawnIntoLocationAndEnforceValues stores the Spawner entity inside each spawned
+                // actor's OriginalSpawnPointComponent.SpawnRegion. Our Spawner is a temp entity
+                // and gets deleted in the finally block below; AI behaviours (RollForLurk,
+                // CombatantPatrolBehaviour) later dereference SpawnRegion.Address() without a
+                // null guard, NPEing on the dangling reference. Re-point each spawned actor's
+                // SpawnRegion to itself so the address check resolves to a live entity.
+                foreach (var actor in command.Spawned)
+                {
+                    if (actor != null && actor.HasOriginalSpawnPoint())
+                    {
+                        var osp = actor.OriginalSpawnPoint();
+                        actor.AddOriginalSpawnPoint(actor, osp.Restrictions);
+                    }
+                }
                 spawned = command.Spawned[0];
                 reason = "";
                 return true;
