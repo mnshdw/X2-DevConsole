@@ -38,6 +38,15 @@ namespace DevConsole.Runtime.Commands
             );
 
             CommandRegistry.Register(
+                "aircraft",
+                Scene.Geoscape,
+                ExecuteAircraft,
+                "aircraft <cmd> [args]",
+                "aircraft add <type> [base] - spawn an aircraft into an empty hangar",
+                "aircraft add ? lists aircraft types"
+            );
+
+            CommandRegistry.Register(
                 "restore",
                 Scene.Geoscape,
                 ExecuteRestore,
@@ -278,6 +287,84 @@ namespace DevConsole.Runtime.Commands
             Log.Info(
                 $"{LogPrefix} spawn: {labelOk} spawned={spawned} at=({address.i},{address.j})"
             );
+        }
+
+        private static readonly string[] AircraftSubcommands = { "add" };
+
+        private static void ExecuteAircraft(string[] args, DevConsoleHost host)
+        {
+            if (args.Length == 0 || args[0] == "?" || args[0] == "help")
+            {
+                host.AppendLine($"usage: {Sig("aircraft <cmd> [args]")}");
+                host.AppendLine($"  subcommands: {string.Join(", ", AircraftSubcommands)}");
+                return;
+            }
+            var sub = args[0].ToLowerInvariant();
+            var rest = args.Skip(1).ToArray();
+            switch (sub)
+            {
+                case "add":
+                    ExecuteAircraftAdd(rest, host);
+                    return;
+                default:
+                    host.AppendLine(
+                        $"aircraft: unknown subcommand '{args[0]}' (try {Sig("aircraft ?")})"
+                    );
+                    return;
+            }
+        }
+
+        private static void ExecuteAircraftAdd(string[] args, DevConsoleHost host)
+        {
+            if (args.Length > 2)
+            {
+                host.AppendLine($"usage: {Sig("aircraft add [type [base]]")}");
+                return;
+            }
+            if (!StrategyContext.TryGetWorld(out var world))
+            {
+                host.AppendLine("not in Geoscape");
+                return;
+            }
+
+            if (args.Length == 0 || args[0] == "?" || args[0] == "help")
+            {
+                var types = StrategyContext.ListAircraftTypeNames(world, out var status);
+                if (types.Count == 0)
+                {
+                    host.AppendLine($"no aircraft templates found: {status}");
+                    return;
+                }
+                host.AppendLine($"aircraft types ({types.Count}):");
+                host.AppendLine("  " + string.Join(", ", types));
+                host.AppendLine($"usage: {Sig("aircraft add <type> [base]")}");
+                return;
+            }
+
+            var typeQuery = args[0];
+            var baseQuery = args.Length >= 2 ? args[1] : null;
+
+            WarnOnce(host);
+            if (
+                !StrategyContext.TrySpawnXenonautAircraft(
+                    world,
+                    typeQuery,
+                    baseQuery,
+                    out var spawned,
+                    out var matchedType,
+                    out var matchedBase,
+                    out var reason
+                )
+            )
+            {
+                host.AppendLine($"aircraft add ({typeQuery}) failed: {reason}");
+                return;
+            }
+            var label = matchedType ?? typeQuery;
+            var baseLabel = matchedBase ?? "?";
+            var name = spawned!.HasName() ? spawned.Name().value : spawned.ToString();
+            host.AppendLine($"added aircraft {label} at base {baseLabel}: {name}");
+            Log.Info($"{LogPrefix} aircraft add: type={label} base={baseLabel} entity={spawned}");
         }
 
         private static string FormatLabel(string? species, string? rank)
