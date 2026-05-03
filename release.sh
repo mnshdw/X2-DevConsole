@@ -2,6 +2,7 @@
 # Build the mod and package a release zip ready to upload to GitHub Releases.
 # Output: dist/dev_console-<version>.zip with this structure:
 #   dev_console/manifest.json
+#   dev_console/preview.png
 #   dev_console/assembly/common/DevConsole.dll
 set -euo pipefail
 
@@ -11,6 +12,7 @@ MOD_ID="dev_console"
 ASSEMBLY_NAME="DevConsole"
 TFM="netstandard2.1"
 MANIFEST="mod/manifest.json"
+PREVIEW="mod/preview.png"
 
 if ! command -v jq >/dev/null 2>&1; then
     echo "error: jq is required to read the version from $MANIFEST" >&2
@@ -37,6 +39,7 @@ trap 'rm -rf "$STAGE"' EXIT
 
 mkdir -p "$STAGE/$MOD_ID/assembly/common"
 cp "$MANIFEST" "$STAGE/$MOD_ID/manifest.json"
+cp "$PREVIEW" "$STAGE/$MOD_ID/preview.png"
 cp "$DLL" "$STAGE/$MOD_ID/assembly/common/$ASSEMBLY_NAME.dll"
 
 mkdir -p dist
