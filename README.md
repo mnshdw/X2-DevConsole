@@ -7,7 +7,7 @@ A debug mod for [Xenonauts 2](https://store.steampowered.com/app/538030/Xenonaut
 1. Download the latest `dev_console-*.zip` from the [Releases page](https://github.com/mnshdw/X2-DevConsole/releases).
 2. Extract into your Xenonauts 2 user mods folder:
    - **Windows:** `Documents\My Games\Xenonauts 2\Mods\`
-   - **Linux (Steam Proton):** `~/.local/share/Steam/steamapps/compatdata/538030/pfx/drive_c/users/steamuser/Documents/My Games/Xenonauts 2/Mods/`
+   - **Linux (Steam Proton):** `~/.local/share/Steam/steamapps/compatdata/538030/pfx/drive_c/users/steamuser/AppData/LocalLow/Goldhawk Interactive/Xenonauts 2/`
 3. Launch Xenonauts 2 -> main menu -> **Mods** -> enable **Dev Console** -> restart.
 
 ## Usage
