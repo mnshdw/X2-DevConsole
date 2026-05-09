@@ -14,6 +14,7 @@ using Xenonauts.Common.Components;
 using Xenonauts.Common.Components.Combatant;
 using Xenonauts.GroundCombat;
 using Xenonauts.GroundCombat.Animation.Acts;
+using Xenonauts.GroundCombat.Components;
 using Xenonauts.GroundCombat.Components.Groups;
 using Xenonauts.GroundCombat.Systems;
 using Xenonauts.Strategy.Data;
@@ -158,6 +159,25 @@ namespace DevConsole.Runtime
             {
                 if (spawner != null)
                 {
+                    // If any actor's SpawnRegion still points at the temp spawner, it was created
+                    // but never re-pointed. The actor is not fully initialized and will crash the
+                    // next time alien AI ticks (RollForLurk, CombatantPatrolBehaviour dereference
+                    // SpawnRegion.Address()) so we have to delete it.
+                    var dangling = world
+                        .FindAllEntitiesMatching(Matcher.All<OriginalSpawnPointComponent>())
+                        .Where(actor =>
+                            actor != null
+                            && actor.HasOriginalSpawnPoint()
+                            && spawner.Equals(actor.OriginalSpawnPoint().SpawnRegion)
+                        )
+                        .ToList();
+                    foreach (var actor in dangling)
+                    {
+                        Log.Warn(
+                            $"{LogPrefix} cleaning up actor {actor.ID}"
+                        );
+                        actor.Delete();
+                    }
                     spawner.Delete();
                 }
             }

@@ -72,6 +72,8 @@ namespace DevConsole.Runtime
             if (string.IsNullOrWhiteSpace(line))
                 return;
 
+            Log.Info($"{LogPrefix}: {line}");
+
             var tokens = line.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
             var name = tokens[0];
             var args = tokens.Skip(1).ToArray();
