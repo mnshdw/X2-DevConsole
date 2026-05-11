@@ -5,8 +5,6 @@ namespace DevConsole.Runtime.Commands
 {
     public static class GroundCombatCommands
     {
-        private static bool _xrayOn;
-
         public static void ExecuteStun(string[] args, DevConsoleHost host)
         {
             if (!Args.RequireArgs(args, 0, host, "stun"))
@@ -241,7 +239,7 @@ namespace DevConsole.Runtime.Commands
                 host.AppendLine("not in GroundCombat");
                 return;
             }
-            var nextOn = !_xrayOn;
+            var nextOn = !GroundCombatContext.IsXrayOn(world);
             if (nextOn)
                 BuiltinCommands.WarnOnce(host);
             if (!GroundCombatContext.SetXray(world, nextOn))
@@ -249,9 +247,8 @@ namespace DevConsole.Runtime.Commands
                 host.AppendLine("could not toggle xray (visibility system missing)");
                 return;
             }
-            _xrayOn = nextOn;
-            host.AppendLine($"xray: {(_xrayOn ? "on" : "off")}");
-            Log.Info($"{LogPrefix} xray: {(_xrayOn ? "on" : "off")}");
+            host.AppendLine($"xray: {(nextOn ? "on" : "off")}");
+            Log.Info($"{LogPrefix} xray: {(nextOn ? "on" : "off")}");
         }
 
         private static string FormatLabel(string? species, string? rank)

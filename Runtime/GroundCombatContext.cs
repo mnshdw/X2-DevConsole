@@ -427,6 +427,12 @@ namespace DevConsole.Runtime
                 );
         }
 
+        public static bool IsXrayOn(World world)
+        {
+            var sys = world.GetSystem<SightingStateModelVisibilitySystem>();
+            return sys != null && sys.Mode == SightingStateModelVisibilitySystem.Modes.RevealAll;
+        }
+
         // Sets SightingStateModelVisibilitySystem.Mode and forces an immediate re-evaluation of
         // every tracked actor (the public Mode setter only iterates when going to RevealAll;
         // going back to Normal silently leaves currently-shown actors visible until the next
