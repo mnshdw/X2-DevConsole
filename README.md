@@ -30,15 +30,20 @@ Note: commands that take `<name>` match with case-insensitive substring, for exa
 - `stat <stat|all> <delta> <name>` - adjust unit stats (eg. `stat strength 5 jones`, `stat all -2 moon`, `stat fuel 50 angel`); `stat ?` lists stats per kind
 - `restore <stat|all> <name>` - restore stats; for soldiers `health`, `timeunits`; for aircrafts `health`, `fuel`, `armor`; `restore ?` lists stats
 - `aircraft add <type> [base]` - spawn an aircraft into an empty hangar, ignoring research and cost (eg. `aircraft add phantom`); `aircraft add ?` lists aircraft types, with no `base` arg, picks the first base with a free hangar
+- `engineering complete` - finish the currently in-progress engineering projects
 - `research complete` - finish the currently in-progress research project
-- `engineering complete` - finish the currently in-progress engineering project
 
 **GroundCombat**:
 
-- `xray` - toggle X-ray vision on enemy silhouettes (does not lift fog of war)
+- `stun` - knock out the combatant under the mouse cursor
+- `stunall` - knock out every alien on the map
 - `kill` - kill the combatant under the mouse cursor
-- `spawn [species [rank]]` - spawn an alien on the tile under the mouse cursor; with no arg, copies from an alien on the map; `spawn ?` lists species, `spawn <species> ?` lists ranks
+- `killall` - kill every conscious alien on the map
+- `reload` - refill the selected unit magazine to its maximum
 - `restore <stat|all>` - restore stats for the combatant under the mouse cursor (eg. `restore health`); `restore ?` lists stats
+- `spawn [species [rank]]` - spawn an alien on the tile under the mouse cursor; with no arg, copies from an alien on the map; `spawn ?` lists species, `spawn <species> ?` lists ranks
+- `teleport` - move the selected unit to the tile under the mouse cursor (LoS/cover update on next move or turn)
+- `xray` - toggle X-ray vision on enemy silhouettes (does not lift fog of war)
 
 WARNING: Most commands modify live game state and can corrupt save files. **Save before using.**
 
