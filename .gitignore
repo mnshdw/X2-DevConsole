@@ -3,9 +3,6 @@ bin/
 obj/
 dist/
 
-# Decompiled game code
-decomp/
-
 # IDE / editor
 .vs/
 .idea/
