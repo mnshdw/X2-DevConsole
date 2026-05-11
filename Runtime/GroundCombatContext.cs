@@ -147,8 +147,7 @@ namespace DevConsole.Runtime
             return true;
         }
 
-        // Drops a single combatant Stun stat to its minimum (knock-out).
-        // Copy of  whatDebugCheatPanelFragment.UseStunThemAll does per entity.
+        // Knocks a combatant out by pushing Stun.Value above HitPoints.Value.
         public static bool TryStunCombatant(Entity target, out string reason)
         {
             if (target == null)
@@ -156,9 +155,9 @@ namespace DevConsole.Runtime
                 reason = "no target";
                 return false;
             }
-            if (!target.HasStun())
+            if (!target.HasStun() || !target.HasHitPoints())
             {
-                reason = "target has no stun stat";
+                reason = "target has no stun or hit points";
                 return false;
             }
             if (!target.HasLifeStatus() || !target.LifeStatus().IsAlive())
@@ -166,9 +165,18 @@ namespace DevConsole.Runtime
                 reason = "target is not alive";
                 return false;
             }
-            target.StunToMinimum();
+            ApplyStun(target);
             reason = "";
             return true;
+        }
+
+        private static void ApplyStun(Entity target)
+        {
+            var hp = target.HitPoints();
+            var stun = target.Stun();
+            var stunValue = hp.Value + 1f;
+            var stunMax = System.Math.Max(stun.Maximum, stunValue);
+            target.AddStun(stun.Minimum, stunValue, stunMax);
         }
 
         // Iterates aliens and apply a mutation.
@@ -201,8 +209,8 @@ namespace DevConsole.Runtime
                 world,
                 c =>
                 {
-                    if (c.HasStun())
-                        c.StunToMinimum();
+                    if (c.HasStun() && c.HasHitPoints())
+                        ApplyStun(c);
                 }
             );
         }
