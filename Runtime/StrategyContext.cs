@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Artitas;
+using Artitas.Systems;
 using Common.Components;
 using Common.Mechanics.Factions;
 using Common.Modding;
@@ -469,7 +470,24 @@ namespace DevConsole.Runtime
             {
                 Entity project = task.Project().Value;
                 completed.Add(project.HasName() ? project.Name().value : project.ToString());
-                task.ProgressPointsToMaximum();
+                // Defer the mutation to the next DeltaTimeEvent. Calling
+                // ProgressPointsToMaximum() inline from OnGUI cascades through
+                // the project state machine into Finished/DequeueProject while
+                // UI row controllers are still bound to the task, which NREs
+                // when the Quantity component-add listener fires.
+                var taskRef = task;
+                world.QueueTask(() =>
+                {
+                    if (
+                        taskRef.HasProjectStateMachine()
+                        && taskRef.IsInProjectStateMachine(
+                            ProjectStateMachineComponent.States.InProgress
+                        )
+                    )
+                    {
+                        taskRef.ProgressPointsToMaximum();
+                    }
+                });
             }
             return completed;
         }
