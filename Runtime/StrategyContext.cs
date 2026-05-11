@@ -460,7 +460,7 @@ namespace DevConsole.Runtime
         // Patches/ProjectQueueRowControllerPatch.
         public static List<string> CompleteInProgressProjects(World world, ProjectType type)
         {
-            var snapshot = new List<(Entity Task, string Name)>();
+            var snapshot = new List<(Entity Task, Entity Project, string Name)>();
             var family = world.RegisterFamily(StrategyArchetypes.ProjectTask);
             foreach (Entity task in family)
             {
@@ -472,18 +472,20 @@ namespace DevConsole.Runtime
                 if (!task.IsInProjectStateMachine(ProjectStateMachineComponent.States.InProgress))
                     continue;
                 var name = project.HasName() ? project.Name().value : project.ToString();
-                snapshot.Add((task, name));
+                snapshot.Add((task, project, name));
             }
             var completed = new List<string>();
             foreach (var item in snapshot)
             {
                 completed.Add(item.Name);
                 var task = item.Task;
+                var project = item.Project;
                 world.QueueTask(() =>
                 {
                     if (
                         task.IsAlive()
-                        && task.HasProjectStateMachine()
+                        && task.HasProject()
+                        && task.Project().Value == project
                         && task.IsInProjectStateMachine(
                             ProjectStateMachineComponent.States.InProgress
                         )
