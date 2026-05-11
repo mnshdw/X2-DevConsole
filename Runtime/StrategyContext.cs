@@ -498,65 +498,149 @@ namespace DevConsole.Runtime
             return completed;
         }
 
-        // Alternate completion path kept around for reference. Mirrors the
-        // game's other dev cheat (ProjectSystem.CompleteProject): synthesize
-        // a throwaway task that is NOT in any queue, then trigger GoTo
-        // Finished on it. The synthesized task's state-machine effects need
-        // a geo base on their selectors, otherwise item awards no-op.
-        //
-        // Trade-off vs the ProgressPointsToMaximum path: this leaves the
-        // original queued task untouched, so the queue UI keeps showing it.
-        // Useful when you want completion side effects without disturbing
-        // the in-flight task. Not currently wired to any command.
-        public static List<string> CompleteInProgressProjectsViaSynth(World world, ProjectType type)
+        // Case-insensitive: exact match wins; otherwise every substring match.
+        public static List<Entity> FindProjectsByName(World world, ProjectType type, string query)
         {
-            var snapshot = new List<(Entity Project, Entity GeoBase, string Name)>();
-            var family = world.RegisterFamily(StrategyArchetypes.ProjectTask);
-            foreach (Entity task in family)
+            var family = world.RegisterFamily(StrategyArchetypes.Project);
+            var exact = new List<Entity>();
+            var partial = new List<Entity>();
+            foreach (Entity project in family)
             {
-                if (!task.HasProject() || !task.HasContainingProjectQueue())
+                if (!project.ProjectType().Is(type) || !project.HasName())
                     continue;
-                Entity project = task.Project().Value;
-                if (!project.ProjectType().Is(type))
+                var name = project.Name().value;
+                if (string.IsNullOrWhiteSpace(name))
                     continue;
-                if (!task.IsInProjectStateMachine(ProjectStateMachineComponent.States.InProgress))
-                    continue;
-                Entity queue = (Entity)task.ContainingProjectQueue();
-                if (!queue.HasProjectQueueOwner())
-                    continue;
-                Entity geoBase = queue.ProjectQueueOwner().Value;
-                var name = project.HasName() ? project.Name().value : project.ToString();
-                snapshot.Add((project, geoBase, name));
+                if (string.Equals(name, query, StringComparison.OrdinalIgnoreCase))
+                    exact.Add(project);
+                else if (name.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0)
+                    partial.Add(project);
             }
-            var completed = new List<string>();
-            foreach (var item in snapshot)
-            {
-                completed.Add(item.Name);
-                var project = item.Project;
-                var geoBase = item.GeoBase;
-                world.QueueTask(() => SynthesizeProjectCompletion(world, project, geoBase));
-            }
-            return completed;
+            return exact.Count > 0 ? exact : partial;
         }
 
-        private static void SynthesizeProjectCompletion(World world, Entity project, Entity geoBase)
+        // Every project of the given type that isn't already finished.
+        public static List<Entity> EnumerateUnfinishedProjects(World world, ProjectType type)
         {
-            Entity newTask = Template
-                .CreateProjectTask(project)
-                .Add(new ProgressPoints(1f, 1f, 1f))
-                .Add(project.ProjectStateMachine().UnsafeCopy())
-                .Create(world);
-            MyOneSelector.Set<MyGeoBaseSelector>(
-                newTask.ProjectStateMachine().AllEffects(),
-                geoBase
-            );
-            newTask.AddTasks(
-                Effects.TriggerProjectStateMachine(
-                    ProjectStateMachineComponent.Triggers.GoTo,
-                    ProjectStateMachineComponent.States.Finished
-                )
-            );
-            MyOneSelector.Set<MyGeoBaseSelector>(newTask.ProjectStateMachine().AllEffects(), null);
+            var family = world.RegisterFamily(StrategyArchetypes.Project);
+            var result = new List<Entity>();
+            foreach (Entity project in family)
+            {
+                if (!project.ProjectType().Is(type) || IsProjectAlreadyDone(project))
+                    continue;
+                if (!project.HasName() || string.IsNullOrWhiteSpace(project.Name().value))
+                    continue;
+                result.Add(project);
+            }
+            return result;
+        }
+
+        private static bool IsProjectAlreadyDone(Entity project)
+        {
+            if (project.ProjectMeta().Has(ProjectMetaComponent.Type.Repeatable))
+                return false;
+            if (!project.HasProjectTasks())
+                return false;
+            foreach (Entity task in project.ProjectTasks())
+            {
+                if (task.IsInProjectStateMachine(ProjectStateMachineComponent.States.Finished))
+                    return true;
+            }
+            return false;
+        }
+
+        // Queues a project completion on the next DeltaTimeEvent.
+        public static string FinishProject(World world, Entity project, Entity geoBase)
+        {
+            var name = project.HasName() ? project.Name().value : project.ToString();
+            world.QueueTask(() =>
+            {
+                Entity task = Template
+                    .CreateProjectTask(project)
+                    .Add(new ProgressPoints(1f, 1f, 1f))
+                    .Add(project.ProjectStateMachine().UnsafeCopy())
+                    .Create(world);
+                MyOneSelector.Set<MyGeoBaseSelector>(
+                    task.ProjectStateMachine().AllEffects(),
+                    geoBase
+                );
+                task.AddTasks(
+                    Effects.TriggerProjectStateMachine(
+                        ProjectStateMachineComponent.Triggers.GoTo,
+                        ProjectStateMachineComponent.States.Finished
+                    )
+                );
+                MyOneSelector.Set<MyGeoBaseSelector>(task.ProjectStateMachine().AllEffects(), null);
+            });
+            return name;
+        }
+
+        public static Entity? PickAnyAliveGeoBase(World world)
+        {
+            return EnumerateAliveGeoBases(world).FirstOrDefault();
+        }
+
+        public class ProjectListing
+        {
+            public List<string> InProgress { get; } = new List<string>();
+            public List<string> Available { get; } = new List<string>();
+            public List<string> Locked { get; } = new List<string>();
+            public List<string> Finished { get; } = new List<string>();
+            public int Total => InProgress.Count + Available.Count + Locked.Count + Finished.Count;
+        }
+
+        public static ProjectListing ListProjects(World world, ProjectType type)
+        {
+            var listing = new ProjectListing();
+            var family = world.RegisterFamily(StrategyArchetypes.Project);
+            foreach (Entity project in family)
+            {
+                if (!project.ProjectType().Is(type) || !project.HasName())
+                    continue;
+                var name = project.Name().value;
+                if (string.IsNullOrWhiteSpace(name))
+                    continue;
+
+                bool hasInProgress = false;
+                bool hasFinished = false;
+                if (project.HasProjectTasks())
+                {
+                    foreach (Entity task in project.ProjectTasks())
+                    {
+                        if (
+                            task.IsInProjectStateMachine(
+                                ProjectStateMachineComponent.States.InProgress
+                            )
+                        )
+                            hasInProgress = true;
+                        else if (
+                            task.IsInProjectStateMachine(
+                                ProjectStateMachineComponent.States.Finished
+                            )
+                        )
+                            hasFinished = true;
+                    }
+                }
+                bool repeatable = project.ProjectMeta().Has(ProjectMetaComponent.Type.Repeatable);
+                bool unlocked = project
+                    .UnlockedStateMachine()
+                    .IsInState(UnlockedStateMachineComponent.States.Unlocked);
+
+                if (hasInProgress)
+                    listing.InProgress.Add(name);
+                else if (hasFinished && !repeatable)
+                    listing.Finished.Add(name);
+                else if (unlocked)
+                    listing.Available.Add(name);
+                else
+                    listing.Locked.Add(name);
+            }
+
+            listing.InProgress.Sort(StringComparer.OrdinalIgnoreCase);
+            listing.Available.Sort(StringComparer.OrdinalIgnoreCase);
+            listing.Locked.Sort(StringComparer.OrdinalIgnoreCase);
+            listing.Finished.Sort(StringComparer.OrdinalIgnoreCase);
+            return listing;
         }
     }
 }

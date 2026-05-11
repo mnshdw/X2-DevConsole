@@ -21,7 +21,9 @@ Press **Alt+G** in-game to toggle the console overlay. Type `help` to list avail
 - `help` - list all commands
 - `clear` - clear the console
 
-Note: commands that take `<name>` match with case-insensitive substring, for example `john` matches `John Russel`. The console will print candidates when there are multiple matches. Rank prefixes (eg. `PVT.`/`CPL.`) are not part of the name.
+Note: commands that take `<name>` match with case-insensitive substring, for example `john` matches `John Russel`, `lase` matches `Laser`.
+
+The console will print candidates when there are multiple matches. Rank prefixes (eg. `PVT.`/`CPL.`) are not part of the name.
 
 **Geoscape**:
 
@@ -30,8 +32,8 @@ Note: commands that take `<name>` match with case-insensitive substring, for exa
 - `stat <stat|all> <delta> <name>` - adjust unit stats (eg. `stat strength 5 jones`, `stat all -2 moon`, `stat fuel 50 angel`); `stat ?` lists stats per kind
 - `restore <stat|all> <name>` - restore stats; for soldiers `health`, `timeunits`; for aircrafts `health`, `fuel`, `armor`; `restore ?` lists stats
 - `aircraft add <type> [base]` - spawn an aircraft into an empty hangar, ignoring research and cost (eg. `aircraft add phantom`); `aircraft add ?` lists aircraft types, with no `base` arg, picks the first base with a free hangar
-- `engineering complete` - finish the currently in-progress engineering projects
-- `research complete` - finish the currently in-progress research project
+- `research complete [<name>|all]` - finish research projects; with no arg, the currently in-progress one; `<name>` one project; `all` every project; `?` lists projects
+- `engineering complete [<name>|all]` - finish engineering projects; same as `research complete`
 
 **GroundCombat**:
 

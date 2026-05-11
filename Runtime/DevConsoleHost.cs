@@ -138,7 +138,20 @@ namespace DevConsole.Runtime
                 inputH
             );
 
-            var contentH = _output.Count * lineH;
+            var contentWidth = outputRect.width - 16;
+            // Measure each line at the actual panel width so wrapped lines
+            // claim the right amount of vertical space. Floor at lineH so the
+            // single-line spacing matches the rest of the UI.
+            var lineHeights = new List<float>(_output.Count);
+            float contentH = 0f;
+            foreach (var line in _output)
+            {
+                var h = _labelStyle.CalcHeight(new GUIContent(line), contentWidth);
+                if (h < lineH)
+                    h = lineH;
+                lineHeights.Add(h);
+                contentH += h;
+            }
             var maxScroll = Mathf.Max(0, contentH - outputRect.height);
             // Stick to bottom on new output unless the user has scrolled up.
             if (_followBottom)
@@ -146,13 +159,15 @@ namespace DevConsole.Runtime
             _scroll = GUI.BeginScrollView(
                 outputRect,
                 _scroll,
-                new Rect(0, 0, outputRect.width - 16, contentH)
+                new Rect(0, 0, contentWidth, contentH)
             );
-            var y = 0;
+            float y = 0f;
+            int idx = 0;
             foreach (var line in _output)
             {
-                GUI.Label(new Rect(0, y, outputRect.width - 16, lineH), line, _labelStyle);
-                y += lineH;
+                var h = lineHeights[idx++];
+                GUI.Label(new Rect(0, y, contentWidth, h), line, _labelStyle);
+                y += h;
             }
             GUI.EndScrollView();
             _followBottom = _scroll.y >= maxScroll - 1f;
@@ -207,7 +222,7 @@ namespace DevConsole.Runtime
             {
                 fontSize = FontSize,
                 fontStyle = FontStyle.Bold,
-                wordWrap = false,
+                wordWrap = true,
                 richText = true,
             };
             _labelStyle.normal.textColor = textColor;

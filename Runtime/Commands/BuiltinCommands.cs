@@ -59,14 +59,16 @@ namespace DevConsole.Runtime.Commands
                 "engineering",
                 Scene.Geoscape,
                 StrategyCommands.ExecuteEngineering,
-                "engineering complete - finish the currently in-progress engineering projects"
+                "engineering complete [<name>|all] - finish engineering projects",
+                "engineering ? for details"
             );
 
             CommandRegistry.Register(
                 "research",
                 Scene.Geoscape,
                 StrategyCommands.ExecuteResearch,
-                "research complete - finish the currently in-progress research project"
+                "research complete [<name>|all] - finish research projects",
+                "research ? for details"
             );
 
             // GroundCombat commands

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using Xenonauts.Strategy.Components;
 using static DevConsole.ModConstants;
@@ -66,55 +67,38 @@ namespace DevConsole.Runtime.Commands
             Log.Info($"{LogPrefix} op delta={delta} new={newValue}");
         }
 
-        private static readonly string[] ResearchSubcommands = { "complete" };
-        private static readonly string[] EngineeringSubcommands = { "complete" };
+        public static void ExecuteEngineering(string[] args, DevConsoleHost host)
+        {
+            ExecuteProjectCommand(args, host, "engineering", ProjectType.Engineering());
+        }
 
         public static void ExecuteResearch(string[] args, DevConsoleHost host)
         {
-            ExecuteProjectCommand(
-                args,
-                host,
-                "research",
-                ResearchSubcommands,
-                ProjectType.Research()
-            );
-        }
-
-        public static void ExecuteEngineering(string[] args, DevConsoleHost host)
-        {
-            ExecuteProjectCommand(
-                args,
-                host,
-                "engineering",
-                EngineeringSubcommands,
-                ProjectType.Engineering()
-            );
+            ExecuteProjectCommand(args, host, "research", ProjectType.Research());
         }
 
         private static void ExecuteProjectCommand(
             string[] args,
             DevConsoleHost host,
             string commandName,
-            string[] subcommands,
             ProjectType type
         )
         {
             if (args.Length == 0 || args[0] == "?" || args[0] == "help")
             {
-                host.AppendLine($"usage: {Sig($"{commandName} <cmd>")}");
-                host.AppendLine($"  subcommands: {string.Join(", ", subcommands)}");
+                host.AppendLine($"usage: {Sig($"{commandName} complete [all|<name>]")}");
+                host.AppendLine($"  complete         the currently in-progress {commandName}");
+                host.AppendLine($"  complete all     every {commandName} project not yet finished");
+                host.AppendLine($"  complete <name>  a specific project (substring match)");
+                host.AppendLine($"  complete ?       list every {commandName} project by status");
                 return;
             }
             var sub = args[0].ToLowerInvariant();
-            if (args.Length > 1)
-            {
-                host.AppendLine($"usage: {Sig($"{commandName} {sub}")}");
-                return;
-            }
+            var rest = args.Skip(1).ToArray();
             switch (sub)
             {
                 case "complete":
-                    ExecuteProjectComplete(host, commandName, type);
+                    ExecuteProjectComplete(rest, host, commandName, type);
                     return;
                 default:
                     host.AppendLine(
@@ -125,6 +109,7 @@ namespace DevConsole.Runtime.Commands
         }
 
         private static void ExecuteProjectComplete(
+            string[] args,
             DevConsoleHost host,
             string commandName,
             ProjectType type
@@ -135,11 +120,104 @@ namespace DevConsole.Runtime.Commands
                 host.AppendLine("not in Geoscape");
                 return;
             }
+
+            if (args.Length == 0)
+            {
+                BuiltinCommands.WarnOnce(host);
+                var completed = StrategyContext.CompleteInProgressProjects(world, type);
+                ReportProjectCompletion(host, commandName, "in-progress", completed);
+                return;
+            }
+
+            if (args.Length == 1 && (args[0] == "?" || args[0].ToLowerInvariant() == "help"))
+            {
+                ListAllProjects(host, commandName, type, world);
+                return;
+            }
+
+            if (args.Length == 1 && args[0].ToLowerInvariant() == "all")
+            {
+                var geoBase = StrategyContext.PickAnyAliveGeoBase(world);
+                if (geoBase == null)
+                {
+                    host.AppendLine($"{commandName} complete all: no alive geo base to credit");
+                    return;
+                }
+                BuiltinCommands.WarnOnce(host);
+                var names = new List<string>();
+                foreach (var p in StrategyContext.EnumerateUnfinishedProjects(world, type))
+                    names.Add(StrategyContext.FinishProject(world, p, geoBase));
+                ReportProjectCompletion(host, commandName, "unfinished", names);
+                return;
+            }
+
+            var query = string.Join(" ", args);
+            var matches = StrategyContext.FindProjectsByName(world, type, query);
+            if (matches.Count == 0)
+            {
+                host.AppendLine(
+                    $"{commandName} complete: no {commandName} project matching '{query}'"
+                );
+                return;
+            }
+            if (matches.Count > 1)
+            {
+                host.AppendLine(
+                    $"{commandName} complete: '{query}' is ambiguous ({matches.Count} matches):"
+                );
+                foreach (var m in matches.Take(10))
+                    host.AppendLine($"  {m.Name().value}");
+                if (matches.Count > 10)
+                    host.AppendLine($"  ... and {matches.Count - 10} more");
+                return;
+            }
+
+            var match = matches[0];
+            var baseForOne = StrategyContext.PickAnyAliveGeoBase(world);
+            if (baseForOne == null)
+            {
+                host.AppendLine($"{commandName} complete: no alive geo base to credit");
+                return;
+            }
             BuiltinCommands.WarnOnce(host);
-            var completed = StrategyContext.CompleteInProgressProjects(world, type);
+            var name = StrategyContext.FinishProject(world, match, baseForOne);
+            host.AppendLine($"{commandName} complete: finished {name}");
+            Log.Info($"{LogPrefix} {commandName} complete: finished name={name}");
+        }
+
+        private static void ListAllProjects(
+            DevConsoleHost host,
+            string commandName,
+            ProjectType type,
+            Artitas.World world
+        )
+        {
+            var listing = StrategyContext.ListProjects(world, type);
+            host.AppendLine($"{commandName} projects ({listing.Total} total):");
+            ListProjectGroup(host, "in progress", listing.InProgress);
+            ListProjectGroup(host, "available", listing.Available);
+            ListProjectGroup(host, "locked", listing.Locked);
+            ListProjectGroup(host, "finished", listing.Finished);
+        }
+
+        private static void ListProjectGroup(DevConsoleHost host, string label, List<string> names)
+        {
+            if (names.Count == 0)
+                return;
+            host.AppendLine($"  {label} ({names.Count}):");
+            host.AppendLine($"    {string.Join(", ", names)}");
+        }
+
+        private static void ReportProjectCompletion(
+            DevConsoleHost host,
+            string commandName,
+            string scope,
+            List<string> completed
+        )
+        {
             if (completed.Count == 0)
             {
-                host.AppendLine($"{commandName} complete: no in-progress {commandName}");
+                host.AppendLine($"{commandName} complete: no {scope} {commandName}");
                 return;
             }
             var word = completed.Count == 1 ? "project" : "projects";
@@ -147,7 +225,7 @@ namespace DevConsole.Runtime.Commands
                 $"{commandName} complete: finished {completed.Count} {word} ({string.Join(", ", completed)})"
             );
             Log.Info(
-                $"{LogPrefix} {commandName} complete: finished={completed.Count} names=[{string.Join(", ", completed)}]"
+                $"{LogPrefix} {commandName} complete ({scope}): finished={completed.Count} names=[{string.Join(", ", completed)}]"
             );
         }
 
