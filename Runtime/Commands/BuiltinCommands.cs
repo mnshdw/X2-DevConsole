@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Xenonauts.Common.Stats;
+using Xenonauts.Strategy.Components;
 using static DevConsole.ModConstants;
 
 namespace DevConsole.Runtime.Commands
@@ -55,6 +56,20 @@ namespace DevConsole.Runtime.Commands
                 "soldier: health, timeunits",
                 "aircraft: health, fuel, armor",
                 "restore ? lists stats"
+            );
+
+            CommandRegistry.Register(
+                "research",
+                Scene.Geoscape,
+                ExecuteResearch,
+                "research complete - finish the currently in-progress research project"
+            );
+
+            CommandRegistry.Register(
+                "engineering",
+                Scene.Geoscape,
+                ExecuteEngineering,
+                "engineering complete - finish the currently in-progress engineering project"
             );
 
             CommandRegistry.Register(
@@ -286,6 +301,91 @@ namespace DevConsole.Runtime.Commands
             host.AppendLine($"spawned {labelOk}: {spawned} at ({address.i},{address.j})");
             Log.Info(
                 $"{LogPrefix} spawn: {labelOk} spawned={spawned} at=({address.i},{address.j})"
+            );
+        }
+
+        private static readonly string[] ResearchSubcommands = { "complete" };
+        private static readonly string[] EngineeringSubcommands = { "complete" };
+
+        private static void ExecuteResearch(string[] args, DevConsoleHost host)
+        {
+            ExecuteProjectCommand(
+                args,
+                host,
+                "research",
+                ResearchSubcommands,
+                ProjectType.Research()
+            );
+        }
+
+        private static void ExecuteEngineering(string[] args, DevConsoleHost host)
+        {
+            ExecuteProjectCommand(
+                args,
+                host,
+                "engineering",
+                EngineeringSubcommands,
+                ProjectType.Engineering()
+            );
+        }
+
+        private static void ExecuteProjectCommand(
+            string[] args,
+            DevConsoleHost host,
+            string commandName,
+            string[] subcommands,
+            ProjectType type
+        )
+        {
+            if (args.Length == 0 || args[0] == "?" || args[0] == "help")
+            {
+                host.AppendLine($"usage: {Sig($"{commandName} <cmd>")}");
+                host.AppendLine($"  subcommands: {string.Join(", ", subcommands)}");
+                return;
+            }
+            var sub = args[0].ToLowerInvariant();
+            if (args.Length > 1)
+            {
+                host.AppendLine($"usage: {Sig($"{commandName} {sub}")}");
+                return;
+            }
+            switch (sub)
+            {
+                case "complete":
+                    ExecuteProjectComplete(host, commandName, type);
+                    return;
+                default:
+                    host.AppendLine(
+                        $"{commandName}: unknown subcommand '{args[0]}' (try {Sig($"{commandName} ?")})"
+                    );
+                    return;
+            }
+        }
+
+        private static void ExecuteProjectComplete(
+            DevConsoleHost host,
+            string commandName,
+            ProjectType type
+        )
+        {
+            if (!StrategyContext.TryGetWorld(out var world))
+            {
+                host.AppendLine("not in Geoscape");
+                return;
+            }
+            WarnOnce(host);
+            var completed = StrategyContext.CompleteInProgressProjects(world, type);
+            if (completed.Count == 0)
+            {
+                host.AppendLine($"{commandName} complete: no in-progress {commandName}");
+                return;
+            }
+            var word = completed.Count == 1 ? "project" : "projects";
+            host.AppendLine(
+                $"{commandName} complete: finished {completed.Count} {word} ({string.Join(", ", completed)})"
+            );
+            Log.Info(
+                $"{LogPrefix} {commandName} complete: finished={completed.Count} names=[{string.Join(", ", completed)}]"
             );
         }
 

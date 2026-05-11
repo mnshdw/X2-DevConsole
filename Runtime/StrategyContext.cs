@@ -443,5 +443,35 @@ namespace DevConsole.Runtime
             aircraft = spawned;
             return true;
         }
+
+        // Forces every in-progress project task of the given type to its
+        // maximum progress.
+        //
+        // This copies the game internal ProjectSystem.CompleteCurrentProjects
+        // dev cheat, scoped to a single ProjectType.
+        public static List<string> CompleteInProgressProjects(World world, ProjectType type)
+        {
+            var snapshot = new List<Entity>();
+            var family = world.RegisterFamily(StrategyArchetypes.ProjectTask);
+            foreach (Entity task in family)
+            {
+                if (!task.HasProject())
+                    continue;
+                Entity project = task.Project().Value;
+                if (!project.ProjectType().Is(type))
+                    continue;
+                if (!task.IsInProjectStateMachine(ProjectStateMachineComponent.States.InProgress))
+                    continue;
+                snapshot.Add(task);
+            }
+            var completed = new List<string>();
+            foreach (var task in snapshot)
+            {
+                Entity project = task.Project().Value;
+                completed.Add(project.HasName() ? project.Name().value : project.ToString());
+                task.ProgressPointsToMaximum();
+            }
+            return completed;
+        }
     }
 }

@@ -30,6 +30,8 @@ Note: commands that take `<name>` match with case-insensitive substring, for exa
 - `stat <stat|all> <delta> <name>` - adjust unit stats (eg. `stat strength 5 jones`, `stat all -2 moon`, `stat fuel 50 angel`); `stat ?` lists stats per kind
 - `restore <stat|all> <name>` - restore stats; for soldiers `health`, `timeunits`; for aircrafts `health`, `fuel`, `armor`; `restore ?` lists stats
 - `aircraft add <type> [base]` - spawn an aircraft into an empty hangar, ignoring research and cost (eg. `aircraft add phantom`); `aircraft add ?` lists aircraft types, with no `base` arg, picks the first base with a free hangar
+- `research complete` - finish the currently in-progress research project
+- `engineering complete` - finish the currently in-progress engineering project
 
 **GroundCombat**:
 
