@@ -71,6 +71,147 @@ namespace DevConsole.Runtime
             return true;
         }
 
+        // Resolves the human player's selected combatant. Mirrors the GHI cheat panel's
+        // _lastSelected concept via the SelectedCombatant link on the Xenonaut player entity.
+        public static bool TryGetSelectedUnit(World world, out Entity? unit)
+        {
+            unit = null;
+            var player = world.GetPlayer(XenonautsConstants.Players.XENONAUT);
+            if (player == null || !player.HasSelectedCombatant())
+                return false;
+            unit = player.SelectedCombatant().Value;
+            return unit != null;
+        }
+
+        // Refills the selected unit active weapon ammo by topping up the loaded magazine
+        // Shots range. Copy from DebugCheatPanelFragment.UseReload.
+        public static bool TryReloadActiveWeapon(Entity unit, out string reason)
+        {
+            if (unit == null)
+            {
+                reason = "no unit";
+                return false;
+            }
+            Entity weapon = unit.ActiveItem();
+            if (weapon == null)
+            {
+                reason = "no active weapon";
+                return false;
+            }
+            Entity ammo = weapon.LoadedAmmo();
+            if (ammo == null)
+            {
+                reason = "weapon has no loaded ammo";
+                return false;
+            }
+            ammo.DeltaShots(ammo.Shots().Maximum);
+            reason = "";
+            return true;
+        }
+
+        // Snaps the unit world transform to the tile under the cursor. This does NOT update
+        // Address(), occupancy, FogOfWar, or fire MovedToReport; basically same limits as the
+        // GHI cheat, cover/overwatch/LoS will be stale until the unit next move or the next turn.
+        public static bool TryTeleportToCursor(
+            World world,
+            Entity unit,
+            Address address,
+            out string reason
+        )
+        {
+            if (unit == null)
+            {
+                reason = "no unit";
+                return false;
+            }
+            if (!unit.IsMemberOfOnBoard())
+            {
+                reason = "unit is not on the board";
+                return false;
+            }
+            if (address.addressType != AddressType.Centre)
+            {
+                reason = "cursor address is not a tile centre";
+                return false;
+            }
+            var boardSys = world.GetSystem<GCBoardSystem>();
+            if (boardSys == null || boardSys.Board == null)
+            {
+                reason = "no board system";
+                return false;
+            }
+            var board = boardSys.Board;
+            var rot = unit.Transformation().rotation;
+            unit.AddTransformation(address.position + board.GetTotalMaxOffsetVector3(address), rot);
+            reason = "";
+            return true;
+        }
+
+        // Drops a single combatant Stun stat to its minimum (knock-out).
+        // Copy of  whatDebugCheatPanelFragment.UseStunThemAll does per entity.
+        public static bool TryStunCombatant(Entity target, out string reason)
+        {
+            if (target == null)
+            {
+                reason = "no target";
+                return false;
+            }
+            if (!target.HasStun())
+            {
+                reason = "target has no stun stat";
+                return false;
+            }
+            if (!target.HasLifeStatus() || !target.LifeStatus().IsAlive())
+            {
+                reason = "target is not alive";
+                return false;
+            }
+            target.StunToMinimum();
+            reason = "";
+            return true;
+        }
+
+        // Iterates aliens and apply a mutation.
+        private static int ForEachAlienCombatant(World world, System.Action<Entity> apply)
+        {
+            var team = world.GetTeam(XenonautsConstants.Teams.ALIEN);
+            if (team == null || !team.HasMembers())
+                return 0;
+            int count = 0;
+            foreach (Entity player in team.Members())
+            {
+                var controlled = player.Controlling();
+                if (controlled == null)
+                    continue;
+                foreach (Entity c in controlled)
+                {
+                    if (c != null && c.HasLifeStatus() && c.LifeStatus().IsAlive())
+                    {
+                        apply(c);
+                        count++;
+                    }
+                }
+            }
+            return count;
+        }
+
+        public static int StunAllAliens(World world)
+        {
+            return ForEachAlienCombatant(
+                world,
+                c =>
+                {
+                    if (c.HasStun())
+                        c.StunToMinimum();
+                }
+            );
+        }
+
+        public static int KillAllAliens(World world)
+        {
+            return ForEachAlienCombatant(world, c => DeathAct.TriggerDeathStart(world, c));
+        }
+
         // Synthesises a temp Spawner entity at the cursor address, dispatches SpawnCombatantCommand,
         // returns the first spawned entity. The temp entity is deleted in the finally block.
         public static bool TrySpawnHostileAt(
@@ -173,9 +314,7 @@ namespace DevConsole.Runtime
                         .ToList();
                     foreach (var actor in dangling)
                     {
-                        Log.Warn(
-                            $"{LogPrefix} cleaning up actor {actor.ID}"
-                        );
+                        Log.Warn($"{LogPrefix} cleaning up actor {actor.ID}");
                         actor.Delete();
                     }
                     spawner.Delete();

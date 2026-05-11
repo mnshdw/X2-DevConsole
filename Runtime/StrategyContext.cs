@@ -11,6 +11,8 @@ using Strategy.Components.Ranges;
 using Xenonauts;
 using Xenonauts.Common.Systems;
 using Xenonauts.Strategy.Components;
+using Xenonauts.Strategy.Data.EntityEffects;
+using Xenonauts.Strategy.Data.EntitySelectors;
 using Xenonauts.Strategy.Factories;
 using Xenonauts.Strategy.Systems;
 using static DevConsole.ModConstants;
@@ -445,14 +447,20 @@ namespace DevConsole.Runtime
             return true;
         }
 
-        // Forces every in-progress project task of the given type to its
-        // maximum progress.
+        // Drives every in-progress project task of the given type to max
+        // progress on the next DeltaTimeEvent. The CheckProjectFinished
+        // subscriber then transitions each task through Finished, which is
+        // the game's normal completion path: items award, downstreams
+        // unlock, the row vanishes from the queue UI, refund accounting is
+        // skipped (cost was already paid when the task started).
         //
-        // This copies the game internal ProjectSystem.CompleteCurrentProjects
-        // dev cheat, scoped to a single ProjectType.
+        // Mirrors the game's internal ProjectSystem.CompleteCurrentProjects
+        // dev cheat, narrowed to a single ProjectType. The same null-target
+        // crash that path normally hits is suppressed by
+        // Patches/ProjectQueueRowControllerPatch.
         public static List<string> CompleteInProgressProjects(World world, ProjectType type)
         {
-            var snapshot = new List<Entity>();
+            var snapshot = new List<(Entity Task, string Name)>();
             var family = world.RegisterFamily(StrategyArchetypes.ProjectTask);
             foreach (Entity task in family)
             {
@@ -463,33 +471,90 @@ namespace DevConsole.Runtime
                     continue;
                 if (!task.IsInProjectStateMachine(ProjectStateMachineComponent.States.InProgress))
                     continue;
-                snapshot.Add(task);
+                var name = project.HasName() ? project.Name().value : project.ToString();
+                snapshot.Add((task, name));
             }
             var completed = new List<string>();
-            foreach (var task in snapshot)
+            foreach (var item in snapshot)
             {
-                Entity project = task.Project().Value;
-                completed.Add(project.HasName() ? project.Name().value : project.ToString());
-                // Defer the mutation to the next DeltaTimeEvent. Calling
-                // ProgressPointsToMaximum() inline from OnGUI cascades through
-                // the project state machine into Finished/DequeueProject while
-                // UI row controllers are still bound to the task, which NREs
-                // when the Quantity component-add listener fires.
-                var taskRef = task;
+                completed.Add(item.Name);
+                var task = item.Task;
                 world.QueueTask(() =>
                 {
                     if (
-                        taskRef.HasProjectStateMachine()
-                        && taskRef.IsInProjectStateMachine(
+                        task.IsAlive()
+                        && task.HasProjectStateMachine()
+                        && task.IsInProjectStateMachine(
                             ProjectStateMachineComponent.States.InProgress
                         )
                     )
                     {
-                        taskRef.ProgressPointsToMaximum();
+                        task.ProgressPointsToMaximum();
                     }
                 });
             }
             return completed;
+        }
+
+        // Alternate completion path kept around for reference. Mirrors the
+        // game's other dev cheat (ProjectSystem.CompleteProject): synthesize
+        // a throwaway task that is NOT in any queue, then trigger GoTo
+        // Finished on it. The synthesized task's state-machine effects need
+        // a geo base on their selectors, otherwise item awards no-op.
+        //
+        // Trade-off vs the ProgressPointsToMaximum path: this leaves the
+        // original queued task untouched, so the queue UI keeps showing it.
+        // Useful when you want completion side effects without disturbing
+        // the in-flight task. Not currently wired to any command.
+        public static List<string> CompleteInProgressProjectsViaSynth(World world, ProjectType type)
+        {
+            var snapshot = new List<(Entity Project, Entity GeoBase, string Name)>();
+            var family = world.RegisterFamily(StrategyArchetypes.ProjectTask);
+            foreach (Entity task in family)
+            {
+                if (!task.HasProject() || !task.HasContainingProjectQueue())
+                    continue;
+                Entity project = task.Project().Value;
+                if (!project.ProjectType().Is(type))
+                    continue;
+                if (!task.IsInProjectStateMachine(ProjectStateMachineComponent.States.InProgress))
+                    continue;
+                Entity queue = (Entity)task.ContainingProjectQueue();
+                if (!queue.HasProjectQueueOwner())
+                    continue;
+                Entity geoBase = queue.ProjectQueueOwner().Value;
+                var name = project.HasName() ? project.Name().value : project.ToString();
+                snapshot.Add((project, geoBase, name));
+            }
+            var completed = new List<string>();
+            foreach (var item in snapshot)
+            {
+                completed.Add(item.Name);
+                var project = item.Project;
+                var geoBase = item.GeoBase;
+                world.QueueTask(() => SynthesizeProjectCompletion(world, project, geoBase));
+            }
+            return completed;
+        }
+
+        private static void SynthesizeProjectCompletion(World world, Entity project, Entity geoBase)
+        {
+            Entity newTask = Template
+                .CreateProjectTask(project)
+                .Add(new ProgressPoints(1f, 1f, 1f))
+                .Add(project.ProjectStateMachine().UnsafeCopy())
+                .Create(world);
+            MyOneSelector.Set<MyGeoBaseSelector>(
+                newTask.ProjectStateMachine().AllEffects(),
+                geoBase
+            );
+            newTask.AddTasks(
+                Effects.TriggerProjectStateMachine(
+                    ProjectStateMachineComponent.Triggers.GoTo,
+                    ProjectStateMachineComponent.States.Finished
+                )
+            );
+            MyOneSelector.Set<MyGeoBaseSelector>(newTask.ProjectStateMachine().AllEffects(), null);
         }
     }
 }
