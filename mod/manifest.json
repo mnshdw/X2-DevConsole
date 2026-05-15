@@ -1,15 +1,24 @@
 {
-	"version": "0.0.4",
-	"asset": {
-		"Name": "Dev Console",
-		"UID": "d20cf73b-0dab-4118-9829-5861e4fe5038",
-		"Description": "Dev console for Xenonauts 2: provides debug actions otherwise unavailable to players.",
-		"Author": "mnshdw",
-		"Website": "",
-		"Tags": ["Utility", "Debug"],
-		"Version": "0.12.0",
-		"MinimumVersion": "7.20.4",
-		"$type": "Common.Content.DataStructures.ContentPackManifest"
-	},
-	"$type": "Common.Content.DataStructures.VersionedAsset"
+    "version": "0.1.0",
+    "asset": {
+        "Source": "SteamWorkshop",
+        "UID": "3726620761",
+        "Name": "Dev Console",
+        "Description": "Dev console for Xenonauts 2: provides debug actions otherwise unavailable to players.",
+        "Visiblity": "Public",
+        "Author": "mnshdw",
+        "Website": "https://github.com/mnshdw/X2-DevConsole",
+        "Credits": "mnshdw",
+        "Tags": [
+            "Utility",
+            "Debug"
+        ],
+        "Dependencies": [],
+        "SupportedLanguages": [],
+        "Version": "0.12.0",
+        "MinimumVersion": "7.21.6",
+        "MaximumVersion": false,
+        "$t": "14"
+    },
+    "$t": "15"
 }
