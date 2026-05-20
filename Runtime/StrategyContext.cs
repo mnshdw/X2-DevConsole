@@ -9,6 +9,7 @@ using Common.Modding;
 using Common.RPG;
 using Strategy.Components.Ranges;
 using Xenonauts;
+using Xenonauts.Common.Components.Item;
 using Xenonauts.Common.Systems;
 using Xenonauts.Strategy.Components;
 using Xenonauts.Strategy.Data.EntityEffects;
@@ -48,6 +49,38 @@ namespace DevConsole.Runtime
         public static float? AddOp(Entity player, float delta)
         {
             return AddRange(player, typeof(OperationPoints), delta);
+        }
+
+        public enum ResourceAddResult
+        {
+            Ok,
+            NoStackToRemoveFrom,
+        }
+
+        // Adds delta to the player stores stack for the given item template (alenium, alloys).
+        public static ResourceAddResult AddStoresItem(
+            World world,
+            Entity player,
+            IReference<Template> itemReference,
+            float delta,
+            out float newValue
+        )
+        {
+            newValue = 0f;
+            var slot = MainBaseSlots.Stores();
+            var existing = player.GetItem(itemReference, slot);
+            if (existing.IsSet)
+            {
+                existing.Value.DeltaQuantity(delta);
+                newValue = existing.Value.Quantity().Value;
+                return ResourceAddResult.Ok;
+            }
+            if (delta <= 0f)
+                return ResourceAddResult.NoStackToRemoveFrom;
+            var entity = itemReference.Get().Wrap(new Quantity(delta)).Create(world);
+            player.AddItem(slot, entity, mergeStacks: true);
+            newValue = delta;
+            return ResourceAddResult.Ok;
         }
 
         private static float? AddRange(Entity player, Type componentType, float delta)

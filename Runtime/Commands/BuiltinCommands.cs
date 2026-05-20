@@ -27,6 +27,22 @@ namespace DevConsole.Runtime.Commands
             );
 
             CommandRegistry.Register(
+                "alloys",
+                Scene.Geoscape,
+                StrategyCommands.ExecuteAlloys,
+                "alloys <delta>",
+                "add or remove Alien Alloys from base stores"
+            );
+
+            CommandRegistry.Register(
+                "alenium",
+                Scene.Geoscape,
+                StrategyCommands.ExecuteAlenium,
+                "alenium <delta>",
+                "add or remove Alenium from base stores"
+            );
+
+            CommandRegistry.Register(
                 "stat",
                 Scene.Geoscape,
                 StatCommand.Execute,

@@ -1,5 +1,9 @@
 using System.Collections.Generic;
 using System.Linq;
+using Artitas;
+using Artitas.Core.Utils;
+using Common.Content;
+using Xenonauts.Strategy;
 using Xenonauts.Strategy.Components;
 using static DevConsole.ModConstants;
 
@@ -65,6 +69,57 @@ namespace DevConsole.Runtime.Commands
             }
             host.AppendLine($"op: {(delta >= 0 ? "+" : "")}{delta} => {newValue:N0}");
             Log.Info($"{LogPrefix} op delta={delta} new={newValue}");
+        }
+
+        public static void ExecuteAlloys(string[] args, DevConsoleHost host)
+        {
+            ExecuteStoresResource(args, host, "alloys", StrategyConstants.ITEMS_ALLOYS);
+        }
+
+        public static void ExecuteAlenium(string[] args, DevConsoleHost host)
+        {
+            ExecuteStoresResource(args, host, "alenium", StrategyConstants.ITEMS_ALENIUM);
+        }
+
+        private static void ExecuteStoresResource(
+            string[] args,
+            DevConsoleHost host,
+            string commandName,
+            IReference<Template> itemReference
+        )
+        {
+            if (!Args.RequireArgs(args, 1, host, $"{commandName} <delta>"))
+                return;
+            if (!Args.TryParseInt(args[0], out var delta))
+            {
+                host.AppendLine($"{commandName}: '{args[0]}' is not an integer");
+                return;
+            }
+            if (!StrategyContext.TryGetWorld(out var world))
+            {
+                host.AppendLine("not in Geoscape");
+                return;
+            }
+            if (!StrategyContext.TryGetPlayer(world, out var player))
+            {
+                host.AppendLine("could not find player entity");
+                return;
+            }
+            BuiltinCommands.WarnOnce(host);
+            var result = StrategyContext.AddStoresItem(
+                world,
+                player,
+                itemReference,
+                delta,
+                out var newValue
+            );
+            if (result == StrategyContext.ResourceAddResult.NoStackToRemoveFrom)
+            {
+                host.AppendLine($"{commandName}: nothing to remove (no stack exists yet)");
+                return;
+            }
+            host.AppendLine($"{commandName}: {(delta >= 0 ? "+" : "")}{delta} => {newValue:N0}");
+            Log.Info($"{LogPrefix} {commandName} delta={delta} new={newValue}");
         }
 
         public static void ExecuteEngineering(string[] args, DevConsoleHost host)
