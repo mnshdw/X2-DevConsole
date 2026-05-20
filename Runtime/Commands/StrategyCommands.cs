@@ -200,9 +200,20 @@ namespace DevConsole.Runtime.Commands
                 }
                 BuiltinCommands.WarnOnce(host);
                 var names = new List<string>();
-                foreach (var p in StrategyContext.EnumerateUnfinishedProjects(world, type))
+                var unfinished = StrategyContext.EnumerateUnfinishedProjects(
+                    world,
+                    type,
+                    out var skippedAircraftBuilds
+                );
+                foreach (var p in unfinished)
                     names.Add(StrategyContext.FinishProject(world, p, geoBase));
                 ReportProjectCompletion(host, commandName, "unfinished", names);
+                if (skippedAircraftBuilds > 0)
+                {
+                    host.AppendLine(
+                        $"{commandName} complete all: skipped {skippedAircraftBuilds} aircraft-build project(s); use {Sig("aircraft add <type>")} instead"
+                    );
+                }
                 return;
             }
 
@@ -221,13 +232,20 @@ namespace DevConsole.Runtime.Commands
                     $"{commandName} complete: '{query}' is ambiguous ({matches.Count} matches):"
                 );
                 foreach (var m in matches.Take(10))
-                    host.AppendLine($"  {m.Name().value}");
+                    host.AppendLine($"  {StrategyContext.GetProjectLabel(m)}");
                 if (matches.Count > 10)
                     host.AppendLine($"  ... and {matches.Count - 10} more");
                 return;
             }
 
             var match = matches[0];
+            if (StrategyContext.ProjectNeedsInProgressSetup(match))
+            {
+                host.AppendLine(
+                    $"{commandName} complete: {StrategyContext.GetProjectLabel(match)} is an aircraft-build project; use {Sig("aircraft add <type>")} instead"
+                );
+                return;
+            }
             var baseForOne = StrategyContext.PickAnyAliveGeoBase(world);
             if (baseForOne == null)
             {

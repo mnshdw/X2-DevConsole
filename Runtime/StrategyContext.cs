@@ -1,21 +1,28 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using Artitas;
+using Artitas.Core.Utils;
 using Artitas.Systems;
+using Artitas.Utils;
 using Common.Components;
+using Common.Content;
 using Common.Mechanics.Factions;
 using Common.Modding;
 using Common.RPG;
+using Common.Taxonomies;
 using Strategy.Components.Ranges;
 using Xenonauts;
 using Xenonauts.Common.Components.Item;
 using Xenonauts.Common.Systems;
+using Xenonauts.Strategy;
 using Xenonauts.Strategy.Components;
 using Xenonauts.Strategy.Data.EntityEffects;
 using Xenonauts.Strategy.Data.EntitySelectors;
 using Xenonauts.Strategy.Factories;
 using Xenonauts.Strategy.Systems;
+using Xenonauts.Strategy.Utils;
 using static DevConsole.ModConstants;
 
 namespace DevConsole.Runtime
@@ -493,7 +500,7 @@ namespace DevConsole.Runtime
         // Patches/ProjectQueueRowControllerPatch.
         public static List<string> CompleteInProgressProjects(World world, ProjectType type)
         {
-            var snapshot = new List<(Entity Task, Entity Project, string Name)>();
+            var snapshot = new List<(Entity Task, Entity Project, string Filename)>();
             var family = world.RegisterFamily(StrategyArchetypes.ProjectTask);
             foreach (Entity task in family)
             {
@@ -504,13 +511,12 @@ namespace DevConsole.Runtime
                     continue;
                 if (!task.IsInProjectStateMachine(ProjectStateMachineComponent.States.InProgress))
                     continue;
-                var name = project.HasName() ? project.Name().value : project.ToString();
-                snapshot.Add((task, project, name));
+                snapshot.Add((task, project, StripAbstract(GetProjectFilenameOrFallback(project))));
             }
             var completed = new List<string>();
             foreach (var item in snapshot)
             {
-                completed.Add(item.Name);
+                completed.Add(item.Filename);
                 var task = item.Task;
                 var project = item.Project;
                 world.QueueTask(() =>
@@ -531,41 +537,151 @@ namespace DevConsole.Runtime
             return completed;
         }
 
-        // Case-insensitive: exact match wins; otherwise every substring match.
+        // Template filename without extension (eg. "colossus_armour_upgrade").
+        public static string GetProjectFilename(Entity project)
+        {
+            var path = project.TemplateReference()?.value?.GetAssetDescriptor()?.GetRelativePath();
+            return string.IsNullOrEmpty(path) ? "" : Path.GetFileNameWithoutExtension(path);
+        }
+
+        private const string AbstractPrefix = "abstract_";
+
+        private static string StripAbstract(string filename) =>
+            filename != null
+            && filename.StartsWith(AbstractPrefix, StringComparison.OrdinalIgnoreCase)
+                ? filename.Substring(AbstractPrefix.Length)
+                : filename;
+
+        // Full template path (eg. "projects/research/colossus_armour_upgrade.json"). Used when
+        // two projects share a filename (would only happen via a mod), then this string is the
+        // unique identifier.
+        public static string GetProjectRelativePath(Entity project)
+        {
+            return project.TemplateReference()?.value?.GetAssetDescriptor()?.GetRelativePath() ?? "";
+        }
+
+        // Friendly label for messages: "filename (Display Name)" when both are available,
+        // otherwise whichever is non-empty. Strips the abstract_ prefix from the filename.
+        public static string GetProjectLabel(Entity project)
+        {
+            var filename = StripAbstract(GetProjectFilename(project));
+            var display = project.HasName() ? project.Name().value : null;
+            if (!string.IsNullOrEmpty(filename) && !string.IsNullOrWhiteSpace(display))
+                return $"{filename} ({display})";
+            if (!string.IsNullOrEmpty(filename))
+                return filename;
+            if (!string.IsNullOrWhiteSpace(display))
+                return display;
+            return project.ToString();
+        }
+
+        // Best stable identifier we can report. Prefers filename; falls back to display name
+        // for projects without an asset descriptor (shouldn't happen for real game data).
+        private static string GetProjectFilenameOrFallback(Entity project)
+        {
+            var filename = GetProjectFilename(project);
+            if (!string.IsNullOrEmpty(filename))
+                return filename;
+            return project.HasName() ? project.Name().value : project.ToString();
+        }
+
+        // Match query against the template filename (case-insensitive, with or without the
+        // "abstract_" prefix). Exact filename match beats display-name matches; substring
+        // filename match beats display-name substring. Display-name matching is kept as a
+        // fallback so users can still type "Colossus" and hit both projects.
         public static List<Entity> FindProjectsByName(World world, ProjectType type, string query)
         {
             var family = world.RegisterFamily(StrategyArchetypes.Project);
-            var exact = new List<Entity>();
-            var partial = new List<Entity>();
+            var exactFilename = new List<Entity>();
+            var exactDisplay = new List<Entity>();
+            var partialFilename = new List<Entity>();
+            var partialDisplay = new List<Entity>();
             foreach (Entity project in family)
             {
-                if (!project.ProjectType().Is(type) || !project.HasName())
+                if (!project.ProjectType().Is(type))
                     continue;
-                var name = project.Name().value;
-                if (string.IsNullOrWhiteSpace(name))
+                var filename = GetProjectFilename(project);
+                var stripped = StripAbstract(filename);
+                var display = project.HasName() ? project.Name().value : "";
+                if (string.IsNullOrEmpty(filename) && string.IsNullOrWhiteSpace(display))
                     continue;
-                if (string.Equals(name, query, StringComparison.OrdinalIgnoreCase))
-                    exact.Add(project);
-                else if (name.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0)
-                    partial.Add(project);
+                bool exactFn = !string.IsNullOrEmpty(filename) && (
+                    string.Equals(filename, query, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(stripped, query, StringComparison.OrdinalIgnoreCase)
+                );
+                bool partialFn = !exactFn && !string.IsNullOrEmpty(filename) && (
+                    filename.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0
+                    || stripped.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0
+                );
+                if (exactFn)
+                    exactFilename.Add(project);
+                else if (
+                    !string.IsNullOrWhiteSpace(display)
+                    && string.Equals(display, query, StringComparison.OrdinalIgnoreCase)
+                )
+                    exactDisplay.Add(project);
+                else if (partialFn)
+                    partialFilename.Add(project);
+                else if (
+                    !string.IsNullOrWhiteSpace(display)
+                    && display.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0
+                )
+                    partialDisplay.Add(project);
             }
-            return exact.Count > 0 ? exact : partial;
+            if (exactFilename.Count > 0)
+                return exactFilename;
+            if (exactDisplay.Count > 0)
+                return exactDisplay;
+            if (partialFilename.Count > 0)
+                return partialFilename;
+            return partialDisplay;
         }
 
-        // Every project of the given type that isn't already finished.
-        public static List<Entity> EnumerateUnfinishedProjects(World world, ProjectType type)
+        // Every project of the given type that isn't already finished, that has a display name
+        // and that can be safely shortcut-completed.
+        // Skip projects with FinishBuildAircraftEffect, which expects a Constructing link set
+        // up by the InProgress entry effect, crashes the game.
+        public static List<Entity> EnumerateUnfinishedProjects(
+            World world,
+            ProjectType type,
+            out int skippedAircraftBuilds
+        )
         {
+            skippedAircraftBuilds = 0;
             var family = world.RegisterFamily(StrategyArchetypes.Project);
             var result = new List<Entity>();
             foreach (Entity project in family)
             {
                 if (!project.ProjectType().Is(type) || IsProjectAlreadyDone(project))
                     continue;
+                if (string.IsNullOrEmpty(GetProjectFilename(project)))
+                    continue;
                 if (!project.HasName() || string.IsNullOrWhiteSpace(project.Name().value))
                     continue;
+                if (ProjectNeedsInProgressSetup(project))
+                {
+                    skippedAircraftBuilds++;
+                    continue;
+                }
                 result.Add(project);
             }
             return result;
+        }
+
+        // Some projects (afaik currently only aircraft engineering projects) carry effects that
+        // expect state set up by an earlier transition (eg. FinishBuildAircraftEffect reads the
+        // Constructing link wired by StartBuildAircraftEffect). Forcing them straight to
+        // Finished crashes.
+        public static bool ProjectNeedsInProgressSetup(Entity project)
+        {
+            if (!project.HasProjectStateMachine())
+                return false;
+            foreach (var effect in project.ProjectStateMachine().AllEffects())
+            {
+                if (effect is FinishBuildAircraftEffect || effect is StartBuildAircraftEffect)
+                    return true;
+            }
+            return false;
         }
 
         private static bool IsProjectAlreadyDone(Entity project)
@@ -585,7 +701,7 @@ namespace DevConsole.Runtime
         // Queues a project completion on the next DeltaTimeEvent.
         public static string FinishProject(World world, Entity project, Entity geoBase)
         {
-            var name = project.HasName() ? project.Name().value : project.ToString();
+            var filename = StripAbstract(GetProjectFilenameOrFallback(project));
             world.QueueTask(() =>
             {
                 Entity task = Template
@@ -605,7 +721,7 @@ namespace DevConsole.Runtime
                 );
                 MyOneSelector.Set<MyGeoBaseSelector>(task.ProjectStateMachine().AllEffects(), null);
             });
-            return name;
+            return filename;
         }
 
         public static Entity? PickAnyAliveGeoBase(World world)
@@ -624,14 +740,17 @@ namespace DevConsole.Runtime
 
         public static ProjectListing ListProjects(World world, ProjectType type)
         {
-            var listing = new ProjectListing();
+            var bucketed =
+                new List<(Entity Project, string Filename, string Path, ProjectStatus Status)>();
             var family = world.RegisterFamily(StrategyArchetypes.Project);
             foreach (Entity project in family)
             {
-                if (!project.ProjectType().Is(type) || !project.HasName())
+                if (!project.ProjectType().Is(type))
                     continue;
-                var name = project.Name().value;
-                if (string.IsNullOrWhiteSpace(name))
+                var filename = GetProjectFilename(project);
+                if (string.IsNullOrEmpty(filename))
+                    continue;
+                if (!project.HasName() || string.IsNullOrWhiteSpace(project.Name().value))
                     continue;
 
                 bool hasInProgress = false;
@@ -659,14 +778,45 @@ namespace DevConsole.Runtime
                     .UnlockedStateMachine()
                     .IsInState(UnlockedStateMachineComponent.States.Unlocked);
 
+                ProjectStatus status;
                 if (hasInProgress)
-                    listing.InProgress.Add(name);
+                    status = ProjectStatus.InProgress;
                 else if (hasFinished && !repeatable)
-                    listing.Finished.Add(name);
+                    status = ProjectStatus.Finished;
                 else if (unlocked)
-                    listing.Available.Add(name);
+                    status = ProjectStatus.Available;
                 else
-                    listing.Locked.Add(name);
+                    status = ProjectStatus.Locked;
+
+                bucketed.Add((project, filename, GetProjectRelativePath(project), status));
+            }
+
+            // When two projects share a filename, fall back to the full relative path.
+            var counts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            foreach (var b in bucketed)
+                counts[b.Filename] = counts.TryGetValue(b.Filename, out var c) ? c + 1 : 1;
+
+            var listing = new ProjectListing();
+            foreach (var b in bucketed)
+            {
+                var id = counts[b.Filename] > 1 ? b.Path : StripAbstract(b.Filename);
+                var display = b.Project.Name().value;
+                var entry = $"{id} ({display})";
+                switch (b.Status)
+                {
+                    case ProjectStatus.InProgress:
+                        listing.InProgress.Add(entry);
+                        break;
+                    case ProjectStatus.Available:
+                        listing.Available.Add(entry);
+                        break;
+                    case ProjectStatus.Locked:
+                        listing.Locked.Add(entry);
+                        break;
+                    case ProjectStatus.Finished:
+                        listing.Finished.Add(entry);
+                        break;
+                }
             }
 
             listing.InProgress.Sort(StringComparer.OrdinalIgnoreCase);
@@ -674,6 +824,14 @@ namespace DevConsole.Runtime
             listing.Locked.Sort(StringComparer.OrdinalIgnoreCase);
             listing.Finished.Sort(StringComparer.OrdinalIgnoreCase);
             return listing;
+        }
+
+        private enum ProjectStatus
+        {
+            InProgress,
+            Available,
+            Locked,
+            Finished,
         }
     }
 }
