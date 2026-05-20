@@ -16,7 +16,7 @@
         "Dependencies": [],
         "SupportedLanguages": [],
         "Version": "0.12.0",
-        "MinimumVersion": "7.21.6",
+        "MinimumVersion": false,
         "MaximumVersion": false,
         "$t": "14"
     },
