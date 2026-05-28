@@ -30,7 +30,7 @@ namespace DevConsole.Runtime.Commands
                 "alloys",
                 Scene.Geoscape,
                 StrategyCommands.ExecuteAlloys,
-                "alloys <delta>",
+                "alloys <delta> [base]",
                 "add or remove Alien Alloys from base stores"
             );
 
@@ -38,7 +38,7 @@ namespace DevConsole.Runtime.Commands
                 "alenium",
                 Scene.Geoscape,
                 StrategyCommands.ExecuteAlenium,
-                "alenium <delta>",
+                "alenium <delta> [base]",
                 "add or remove Alenium from base stores"
             );
 

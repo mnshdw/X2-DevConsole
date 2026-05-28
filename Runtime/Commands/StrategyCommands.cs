@@ -88,8 +88,11 @@ namespace DevConsole.Runtime.Commands
             IReference<Template> itemReference
         )
         {
-            if (!Args.RequireArgs(args, 1, host, $"{commandName} <delta>"))
+            if (args.Length < 1 || args.Length > 2)
+            {
+                host.AppendLine($"usage: {Sig($"{commandName} <delta> [base]")}");
                 return;
+            }
             if (!Args.TryParseInt(args[0], out var delta))
             {
                 host.AppendLine($"{commandName}: '{args[0]}' is not an integer");
@@ -100,15 +103,29 @@ namespace DevConsole.Runtime.Commands
                 host.AppendLine("not in Geoscape");
                 return;
             }
-            if (!StrategyContext.TryGetPlayer(world, out var player))
+            Entity? geoBase;
+            string reason;
+            if (args.Length == 2)
             {
-                host.AppendLine("could not find player entity");
-                return;
+                if (!StrategyContext.TryFindGeoBaseByName(world, args[1], out geoBase, out reason))
+                {
+                    host.AppendLine($"{commandName}: {reason}");
+                    return;
+                }
+            }
+            else
+            {
+                geoBase = StrategyContext.PickAnyAliveGeoBase(world);
+                if (geoBase == null)
+                {
+                    host.AppendLine($"{commandName}: no alive geo bases");
+                    return;
+                }
             }
             BuiltinCommands.WarnOnce(host);
             var result = StrategyContext.AddStoresItem(
                 world,
-                player,
+                geoBase!,
                 itemReference,
                 delta,
                 out var newValue
@@ -118,8 +135,11 @@ namespace DevConsole.Runtime.Commands
                 host.AppendLine($"{commandName}: nothing to remove (no stack exists yet)");
                 return;
             }
-            host.AppendLine($"{commandName}: {(delta >= 0 ? "+" : "")}{delta} => {newValue:N0}");
-            Log.Info($"{LogPrefix} {commandName} delta={delta} new={newValue}");
+            var baseLabel = geoBase!.HasName() ? geoBase.Name().value : "?";
+            host.AppendLine(
+                $"{commandName} ({baseLabel}): {(delta >= 0 ? "+" : "")}{delta} => {newValue:N0}"
+            );
+            Log.Info($"{LogPrefix} {commandName} base={baseLabel} delta={delta} new={newValue}");
         }
 
         public static void ExecuteEngineering(string[] args, DevConsoleHost host)

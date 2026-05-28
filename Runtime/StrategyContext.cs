@@ -5,18 +5,16 @@ using System.Linq;
 using Artitas;
 using Artitas.Core.Utils;
 using Artitas.Systems;
-using Artitas.Utils;
 using Common.Components;
-using Common.Content;
 using Common.Mechanics.Factions;
 using Common.Modding;
 using Common.RPG;
 using Common.Taxonomies;
 using Strategy.Components.Ranges;
 using Xenonauts;
+using Xenonauts.Common;
 using Xenonauts.Common.Components.Item;
 using Xenonauts.Common.Systems;
-using Xenonauts.Strategy;
 using Xenonauts.Strategy.Components;
 using Xenonauts.Strategy.Data.EntityEffects;
 using Xenonauts.Strategy.Data.EntitySelectors;
@@ -64,10 +62,10 @@ namespace DevConsole.Runtime
             NoStackToRemoveFrom,
         }
 
-        // Adds delta to the player stores stack for the given item template (alenium, alloys).
+        // Adds delta to the base stores stack for the given item template (alenium, alloys).
         public static ResourceAddResult AddStoresItem(
             World world,
-            Entity player,
+            Entity geoBase,
             IReference<Template> itemReference,
             float delta,
             out float newValue
@@ -75,18 +73,13 @@ namespace DevConsole.Runtime
         {
             newValue = 0f;
             var slot = MainBaseSlots.Stores();
-            var existing = player.GetItem(itemReference, slot);
-            if (existing.IsSet)
-            {
-                existing.Value.DeltaQuantity(delta);
-                newValue = existing.Value.Quantity().Value;
-                return ResourceAddResult.Ok;
-            }
-            if (delta <= 0f)
+            var existing = geoBase.GetItem(itemReference, slot);
+            if (!existing.IsSet && delta < 0f)
                 return ResourceAddResult.NoStackToRemoveFrom;
-            var entity = itemReference.Get().Wrap(new Quantity(delta)).Create(world);
-            player.AddItem(slot, entity, mergeStacks: true);
-            newValue = delta;
+            var campaign = world.FindTagged<CampaignTag>();
+            geoBase.DeltaItem(campaign, slot, itemReference, delta);
+            var after = geoBase.GetItem(itemReference, slot);
+            newValue = after.IsSet ? after.Value.Quantity().Value : 0f;
             return ResourceAddResult.Ok;
         }
 
@@ -333,6 +326,41 @@ namespace DevConsole.Runtime
             return null;
         }
 
+        // Resolves a geo base by name (exact or substring). Returns the only match,
+        // or sets a descriptive reason for "no alive bases" / "no match" / "ambiguous".
+        public static bool TryFindGeoBaseByName(
+            World world,
+            string geoBaseQuery,
+            out Entity? geoBase,
+            out string reason
+        )
+        {
+            geoBase = null;
+            reason = "";
+            var bases = EnumerateAliveGeoBases(world);
+            if (bases.Count == 0)
+            {
+                reason = "no alive geo bases";
+                return false;
+            }
+            var matches = FindByName(bases, geoBaseQuery);
+            if (matches.Count == 0)
+            {
+                reason = $"no base matching '{geoBaseQuery}'";
+                return false;
+            }
+            if (matches.Count > 1)
+            {
+                reason =
+                    $"'{geoBaseQuery}' is ambiguous ({matches.Count} matches: "
+                    + string.Join(", ", matches.Select(b => b.HasName() ? b.Name().value : "?"))
+                    + ")";
+                return false;
+            }
+            geoBase = matches[0];
+            return true;
+        }
+
         // Picks (geoBase, hangar) for spawning. If geoBaseQuery is null, scans every alive
         // base; if it's set, matches by Name (exact or substring) and only considers that
         // base. Returns null reason on success.
@@ -347,37 +375,24 @@ namespace DevConsole.Runtime
             geoBase = null;
             hangar = null;
             reason = "";
+            if (geoBaseQuery != null)
+            {
+                if (!TryFindGeoBaseByName(world, geoBaseQuery, out geoBase, out reason))
+                    return false;
+                hangar = FindEmptyHangarInGeoBase(world, geoBase!);
+                if (hangar == null)
+                {
+                    reason =
+                        $"base '{(geoBase!.HasName() ? geoBase.Name().value : "?")}' has no empty hangar";
+                    return false;
+                }
+                return true;
+            }
             var bases = EnumerateAliveGeoBases(world);
             if (bases.Count == 0)
             {
                 reason = "no alive geo bases";
                 return false;
-            }
-            if (geoBaseQuery != null)
-            {
-                var matches = FindByName(bases, geoBaseQuery);
-                if (matches.Count == 0)
-                {
-                    reason = $"no base matching '{geoBaseQuery}'";
-                    return false;
-                }
-                if (matches.Count > 1)
-                {
-                    reason =
-                        $"'{geoBaseQuery}' is ambiguous ({matches.Count} matches: "
-                        + string.Join(", ", matches.Select(b => b.HasName() ? b.Name().value : "?"))
-                        + ")";
-                    return false;
-                }
-                geoBase = matches[0];
-                hangar = FindEmptyHangarInGeoBase(world, geoBase);
-                if (hangar == null)
-                {
-                    reason =
-                        $"base '{(geoBase.HasName() ? geoBase.Name().value : "?")}' has no empty hangar";
-                    return false;
-                }
-                return true;
             }
             foreach (var b in bases)
             {
@@ -557,7 +572,8 @@ namespace DevConsole.Runtime
         // unique identifier.
         public static string GetProjectRelativePath(Entity project)
         {
-            return project.TemplateReference()?.value?.GetAssetDescriptor()?.GetRelativePath() ?? "";
+            return project.TemplateReference()?.value?.GetAssetDescriptor()?.GetRelativePath()
+                ?? "";
         }
 
         // Friendly label for messages: "filename (Display Name)" when both are available,
@@ -605,14 +621,19 @@ namespace DevConsole.Runtime
                 var display = project.HasName() ? project.Name().value : "";
                 if (string.IsNullOrEmpty(filename) && string.IsNullOrWhiteSpace(display))
                     continue;
-                bool exactFn = !string.IsNullOrEmpty(filename) && (
-                    string.Equals(filename, query, StringComparison.OrdinalIgnoreCase)
-                    || string.Equals(stripped, query, StringComparison.OrdinalIgnoreCase)
-                );
-                bool partialFn = !exactFn && !string.IsNullOrEmpty(filename) && (
-                    filename.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0
-                    || stripped.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0
-                );
+                bool exactFn =
+                    !string.IsNullOrEmpty(filename)
+                    && (
+                        string.Equals(filename, query, StringComparison.OrdinalIgnoreCase)
+                        || string.Equals(stripped, query, StringComparison.OrdinalIgnoreCase)
+                    );
+                bool partialFn =
+                    !exactFn
+                    && !string.IsNullOrEmpty(filename)
+                    && (
+                        filename.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0
+                        || stripped.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0
+                    );
                 if (exactFn)
                     exactFilename.Add(project);
                 else if (

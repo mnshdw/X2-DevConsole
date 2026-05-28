@@ -29,8 +29,8 @@ The console will print candidates when there are multiple matches. Rank prefixes
 
 - `funds <delta>` - add or remove Cash (e.g. `funds 5000`, `funds -1000`)
 - `op <delta>` - add or remove Operation Points
-- `alloys <delta>` - add or remove Alloys
-- `alenium <delta>` - add or remove Alenium
+- `alloys <delta> [base]` - add or remove Alloys
+- `alenium <delta> [base]` - add or remove Alenium
 - `stat <stat|all> <delta> <name>` - adjust unit stats (eg. `stat strength 5 jones`, `stat all -2 moon`, `stat fuel 50 angel`); `stat ?` lists stats per kind
 - `restore <stat|all> <name>` - restore stats; for soldiers `health`, `timeunits`; for aircrafts `health`, `fuel`, `armor`; `restore ?` lists stats
 - `aircraft add <type> [base]` - spawn an aircraft into an empty hangar, ignoring research and cost (eg. `aircraft add phantom`); `aircraft add ?` lists aircraft types, with no `base` arg, picks the first base with a free hangar
