@@ -62,7 +62,7 @@ namespace DevConsole.Runtime
             NoStackToRemoveFrom,
         }
 
-        // Adds delta to the base stores stack for the given item template (alenium, alloys).
+        // Adds delta to the base stores stack for any campaign item template.
         public static ResourceAddResult AddStoresItem(
             World world,
             Entity geoBase,

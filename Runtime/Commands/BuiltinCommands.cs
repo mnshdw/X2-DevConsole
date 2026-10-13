@@ -11,6 +11,24 @@ namespace DevConsole.Runtime.Commands
             // Geoscape commands
 
             CommandRegistry.Register(
+                "panic",
+                Scene.Geoscape,
+                PanicCommand.Execute,
+                "panic <delta> <region|all>",
+                "add or remove regional panic (eg. panic -10 all)",
+                "panic ? lists regions and current panic"
+            );
+
+            CommandRegistry.Register(
+                "item",
+                Scene.Geoscape,
+                ItemCommand.Execute,
+                "item <delta> <item> [base]",
+                "add or remove base items",
+                "item ? [filter] lists item paths and names"
+            );
+
+            CommandRegistry.Register(
                 "funds",
                 Scene.Geoscape,
                 StrategyCommands.ExecuteFunds,
