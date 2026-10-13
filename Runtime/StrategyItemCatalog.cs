@@ -6,6 +6,7 @@ using Artitas.Components;
 using Artitas.Core.Utils;
 using Common.Components;
 using Common.Taxonomies;
+using Common.Utilities.EqualityComparers;
 using Xenonauts.Common.Systems;
 using Xenonauts.Strategy.Components;
 
@@ -56,7 +57,18 @@ namespace DevConsole.Runtime
             }
             if (result.Count == 0)
                 status = "campaign item requisition is empty";
-            return result.OrderBy(i => i.Path, StringComparer.OrdinalIgnoreCase).ToList();
+            return Deduplicate(result).OrderBy(i => i.Path, StringComparer.OrdinalIgnoreCase).ToList();
+        }
+
+        public static List<Item> Deduplicate(IEnumerable<Item> items)
+        {
+            // RequisitionComponent.Get uses the first entry with this reference identity.
+            // Multiple wrappers can name the same item differently (Captured/Stunned Wraith).
+            // Use the game's comparer, not filenames, so distinct mod assets stay distinct.
+            return items
+                .GroupBy(i => i.Reference, ReferenceIdentityEqualityComparer<Template>.Default)
+                .Select(group => group.First())
+                .ToList();
         }
 
         public static List<Item> Find(List<Item> items, string query, bool exactFirst)
