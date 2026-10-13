@@ -5,7 +5,7 @@
         "UID": "3726620761",
         "WorkshopID": "3726620761",
         "Name": "Dev Console",
-        "Description": "Dev console for Xenonauts 2: provides debug actions otherwise unavailable to players.",
+        "Description": "[b]Dev Console for Xenonauts 2[/b]: provides debug actions otherwise unavailable to players.\n\n[h2]Usage[/h2]\nPress Alt+G in-game to toggle the console.\nType [b]help[/b] to list commands.\nPress Esc to close.\n\n[b]WARNING: most commands modify live game state and can corrupt save files. Save before using.[/b]\n\n[h2]Source[/h2]\n[url=https://github.com/mnshdw/X2-DevConsole]github.com/mnshdw/X2-DevConsole[/url]",
         "Visibility": "Public",
         "Author": "mnshdw",
         "Website": "https://github.com/mnshdw/X2-DevConsole",
